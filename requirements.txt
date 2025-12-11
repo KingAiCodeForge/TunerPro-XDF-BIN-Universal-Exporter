@@ -1,0 +1,27 @@
+# ==============================================================================
+# KingAI TunerPro XDF + BIN Universal Exporter - Requirements
+# ==============================================================================
+# Author: KingAI (Jason King)
+# GitHub: KingAiCodeForge
+# PCMHacking: kingaustraliagg
+# ==============================================================================
+
+# Core GUI Framework
+PySide6>=6.5.0
+
+# Standard library modules used (no install needed, listed for reference):
+# - xml.etree.ElementTree (XDF parsing)
+# - struct (binary data reading)
+# - hashlib (file checksums)
+# - logging (error/debug output)
+# - pathlib (file path handling)
+# - re (regex for math evaluation)
+# - sys (command line interface)
+# - statistics (data analysis)
+# - json (JSON export format)
+# - datetime (timestamp generation)
+
+# Optional development dependencies
+# pytest>=7.0.0         # For running tests
+# black>=23.0.0         # Code formatting
+# flake8>=6.0.0         # Code linting
