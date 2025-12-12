@@ -102,12 +102,13 @@ class ExportWorker(QThread):
     finished = Signal(bool, str, list)  # Success flag, message, output files
     element_count = Signal(int, int, int)  # constants, flags, tables
     
-    def __init__(self, xdf_path: str, bin_path: str, output_path: str, formats: list):
+    def __init__(self, xdf_path: str, bin_path: str, output_path: str, formats: list, skip_validation: bool = False):
         super().__init__()
         self.xdf_path = xdf_path
         self.bin_path = bin_path
         self.output_path = output_path
         self.formats = formats
+        self.skip_validation = skip_validation
         self.output_files = []
     
     def run(self):
@@ -116,10 +117,23 @@ class ExportWorker(QThread):
             self.progress.emit("Loading XDF definition...")
             exporter = UniversalXDFExporter(self.xdf_path, self.bin_path)
             
-            self.progress.emit("Validating binary file...")
-            if not exporter.validate_bin_file():
-                self.finished.emit(False, f"Binary validation failed!\n\nCould not read: {self.bin_path}", [])
-                return
+            if self.skip_validation:
+                self.progress.emit("Skipping validation (forced mode)...")
+                # Still need to read the binary file, just don't validate size
+                try:
+                    with open(self.bin_path, 'rb') as f:
+                        exporter.bin_data = f.read()
+                        exporter.bin_size = len(exporter.bin_data)
+                    import hashlib
+                    exporter.bin_md5 = hashlib.md5(exporter.bin_data).hexdigest()
+                except Exception as e:
+                    self.finished.emit(False, f"Could not read binary file!\n\nError: {e}", [])
+                    return
+            else:
+                self.progress.emit("Validating binary file...")
+                if not exporter.validate_bin_file():
+                    self.finished.emit(False, f"Binary validation failed!\n\nCould not read: {self.bin_path}", [])
+                    return
             
             self.progress.emit("Parsing XDF structure...")
             if not exporter.parse_xdf():
@@ -249,6 +263,10 @@ class TunerProExporterGUI(QMainWindow):
         # Format selection group
         format_group = self._create_format_selection_group()
         main_layout.addWidget(format_group)
+        
+        # Options group (validation settings)
+        options_group = self._create_options_group()
+        main_layout.addWidget(options_group)
         
         # Export button
         self.export_btn = QPushButton("  Export  ")
@@ -475,6 +493,33 @@ class TunerProExporterGUI(QMainWindow):
         
         return group
     
+    def _create_options_group(self) -> QGroupBox:
+        """Create the options group with validation settings"""
+        group = QGroupBox("Options")
+        layout = QHBoxLayout(group)
+        
+        # Skip validation checkbox
+        self.skip_validation_cb = QCheckBox("Skip Validation")
+        self.skip_validation_cb.setToolTip(
+            "Skip BIN file size validation.\n\n"
+            "Use this when:\n"
+            "• XDF doesn't match BIN size (WIP definitions)\n"
+            "• Testing experimental XDF files\n"
+            "• Working with non-standard BIN sizes\n\n"
+            "⚠️ Data may be incorrect if addresses don't align!"
+        )
+        
+        # Open output folder after export
+        self.open_folder_cb = QCheckBox("Open folder after export")
+        self.open_folder_cb.setToolTip("Open the output folder when export completes")
+        self.open_folder_cb.setChecked(True)
+        
+        layout.addWidget(self.skip_validation_cb)
+        layout.addWidget(self.open_folder_cb)
+        layout.addStretch()
+        
+        return group
+    
     def _apply_theme(self):
         """Apply dark theme to the application"""
         self.setStyleSheet("""
@@ -679,7 +724,8 @@ class TunerProExporterGUI(QMainWindow):
         self.log(f"Formats: {', '.join(formats)}")
         
         # Start worker thread
-        self.worker = ExportWorker(xdf_path, bin_path, output_path, formats)
+        skip_validation = self.skip_validation_cb.isChecked()
+        self.worker = ExportWorker(xdf_path, bin_path, output_path, formats, skip_validation)
         self.worker.progress.connect(self.on_progress)
         self.worker.finished.connect(self.on_finished)
         self.worker.element_count.connect(self.on_element_count)

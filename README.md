@@ -11,6 +11,20 @@ A powerful Python tool that exports ECU calibration data from TunerPro XDF defin
 
 ---
 
+## 💡 Why This Tool Exists
+
+**TunerPro exports zeros instead of actual table data.**
+
+When exporting calibration data from TunerPro using certain XDF/BIN combinations, all table cell values show as `0.00` - even though the data displays correctly inside TunerPro itself. This affects:
+
+- **Holden VY V6 $060A** - Enhanced v2.09a XDF + Enhanced v1.0 BIN → zeros
+- **Holden VS Supercharged $51** - Various XDF/BIN combos → zeros  
+- **Other GM/Holden platforms** - VT, VX, VE with certain Enhanced OS XDFs
+
+This tool was built to solve that problem. It reads the XDF definition and BIN file directly, correctly extracting **all** table cell data, axis values, and statistics that TunerPro fails to export.
+
+---
+
 ## 🌟 Features
 
 ### ✅ Superior Data Extraction (vs TunerPro)
@@ -67,6 +81,206 @@ A powerful Python tool that exports ECU calibration data from TunerPro XDF defin
    ```batch
    pip install -r requirements.txt
    ```
+
+---
+
+## 📋 XDF Element Types Explained
+
+The exporter handles three distinct XDF element types, each requiring different processing:
+
+### 1. XDFCONSTANT (Scalars)
+
+Single-value parameters like rev limiters, idle speed, fuel trims.
+
+```xml
+<XDFCONSTANT uniqueid="0x5678">
+    <title>Rev Limiter Hard</title>
+    <EMBEDDEDDATA mmedaddress="0x3C42" mmedelementsizebits="16" mmedtypeflags="0x00"/>
+    <MATH equation="X"/>
+    <units>RPM</units>
+    <decimalpl>0</decimalpl>
+</XDFCONSTANT>
+```
+
+**Processing Pipeline:**
+1. Extract address from `EMBEDDEDDATA`
+2. Apply BASEOFFSET translation
+3. Read raw bytes from BIN (respecting size and endianness)
+4. Apply math equation to convert raw value
+5. Format with specified decimal places
+
+### 2. XDFFLAG (Binary Flags)
+
+On/off switches for features like VE tuning, speed limiter, diagnostics.
+
+```xml
+<XDFFLAG uniqueid="0x9ABC">
+    <title>Speed Density Mode</title>
+    <EMBEDDEDDATA mmedaddress="0x0108" mmedelementsizebits="8"/>
+    <mask>0x08</mask>
+</XDFFLAG>
+```
+
+**Processing Pipeline:**
+1. Read byte from address
+2. Apply bitmask via `(byte_value & mask) != 0`
+3. Report as "Set" or "Not Set"
+
+### 3. XDFTABLE (2D/3D Tables)
+
+Multi-dimensional calibration tables for fuel, timing, VE, etc.
+
+```xml
+<XDFTABLE uniqueid="0x1234">
+    <title>Fuel VE Table</title>
+    <XDFAXIS id="x">
+        <EMBEDDEDDATA mmedaddress="0x1E00" mmedelementsizebits="8"/>
+        <indexcount>17</indexcount>
+        <MATH equation="X*25"/>
+        <units>RPM</units>
+    </XDFAXIS>
+    <XDFAXIS id="y">
+        <EMBEDDEDDATA mmedaddress="0x1E11" mmedelementsizebits="8"/>
+        <indexcount>16</indexcount>
+        <MATH equation="X*0.75"/>
+        <units>kPa</units>
+    </XDFAXIS>
+    <XDFAXIS id="z">
+        <EMBEDDEDDATA mmedaddress="0x1E22" mmedrowcount="16" mmedcolcount="17"/>
+        <MATH equation="X*0.00390625"/>
+        <units>%</units>
+    </XDFAXIS>
+</XDFTABLE>
+```
+
+**Processing Pipeline:**
+1. Extract X-axis labels (column headers)
+2. Extract Y-axis labels (row headers)
+3. Read Z-axis data matrix (rows × cols)
+4. Apply math equation to all values
+5. Calculate statistics (min/max/avg/unique)
+6. Detect all-zero patterns (XDF/BIN mismatch warning)
+
+---
+
+## 🔬 How It Works (Technical Deep-Dive)
+
+### Core Architecture
+
+The exporter uses a modular pipeline approach:
+
+```
+XDF File (XML) ──► Parse Structure ──► Extract Elements ──► Read Binary ──► Apply Math ──► Export
+     │                  │                    │                  │              │            │
+     └─ ET.parse()      └─ _extract_*()     └─ 3 types:        └─ struct     └─ eval()    └─ TXT/JSON/MD
+                                                Constants         unpack                     CSV
+                                                Flags
+                                                Tables
+```
+
+### XDF Format Variations Handled
+
+The `UniversalXDFExporter` class handles multiple XDF structural variations:
+
+| XDF Variation | Detection Method | Example |
+|---------------|------------------|---------|
+| Standard `mmedaddress` | `EMBEDDEDDATA` element | `mmedaddress="0x3C42"` |
+| Alternative `mmedtypeflags` | Flag + address combo | `mmedtypeflags="0x02"` + `mmedaddress` |
+| Direct `address` attribute | Element attribute | `<XDFCONSTANT address="0x1234">` |
+| Child `mem`/`memory` element | Nested element | `<mem>0x1234</mem>` |
+
+### BASEOFFSET Handling (Critical for 68HC11 ECUs)
+
+The BASEOFFSET mechanism in XDF files maps ECU memory addresses to binary file offsets:
+
+```xml
+<!-- Format 1: Standard with subtract flag -->
+<BASEOFFSET offset="32768" subtract="1" />
+
+<!-- Format 2: Simple lowercase -->
+<baseoffset>0</baseoffset>
+```
+
+**Address Translation Logic:**
+
+```python
+# subtract="1": ECU addresses start at offset, file starts at 0
+# Common for 68HC11 (Ford AU, Holden VN-VY)
+# XDF addr 0x8000 with offset 0x8000, subtract=1 → file offset 0x0000
+file_offset = xdf_address - base_offset
+
+# subtract="0": File has header/padding before calibration
+# XDF addr 0x0000 with offset 0x48000 → file offset 0x48000  
+file_offset = xdf_address + base_offset
+```
+
+### Binary Reading with Endianness Support
+
+The exporter correctly handles both big-endian and little-endian data:
+
+```python
+# mmedtypeflags bit meanings:
+# Bit 0 (0x01): LSB first (little-endian)
+# Bit 1 (0x02): Signed value
+
+# Supported data sizes: 8-bit, 16-bit, 32-bit
+# Format specifiers: B/b (8), H/h (16), I/i (32)
+# Endianness: < (little-endian), > (big-endian)
+```
+
+### Math Equation Evaluation
+
+Handles TunerPro's math syntax with edge case handling:
+
+```python
+# Standard: "0.75 * X - 40"
+# Named variables: "X1000 / 100" → replaced with raw value
+# Operator prefix: "*2**14" → prepended with X
+# Case-insensitive: "x", "X", "e", "E" all work
+```
+
+**Safe Evaluation:** Uses restricted `eval()` with `__builtins__: {}` for security.
+
+### Data Validation Pipeline
+
+Every table goes through validation checks:
+
+1. **Zero Detection** - Warns if >95% cells are zero (XDF/BIN mismatch)
+2. **Uniformity Check** - Flags if all cells have identical values
+3. **Boundary Validation** - Ensures addresses don't exceed BIN size
+4. **Statistics Calculation** - min/max/avg/unique count for sanity checking
+
+---
+
+## 🖥️ GUI Features (v3.2.0)
+
+The PySide6 Qt GUI (`exporter_gui.py`) provides:
+
+### Input/Output Features
+
+- 📂 **Browse Dialogs** - File picker for XDF, BIN, and output folder
+- 🖱️ **Drag & Drop** - Drop XDF/BIN files directly onto the window
+- 📝 **Recent Files** - Quick access to last 10 XDF/BIN pairs (QSettings)
+- 🔍 **Auto-Detect** - Finds matching BIN when XDF is selected
+
+### Export Options
+
+- ☑️ **Format Checkboxes** - Select TXT, JSON, MD, CSV individually
+- 📊 **Preview Mode** - Shows element count before export
+- 📁 **Open Folder** - Option to open output folder after export
+- ⚡ **Skip Validation** - Bypass BIN size checks for WIP/experimental XDFs
+
+### Processing
+
+- ⚙️ **Background Thread** - `ExportWorker(QThread)` for non-blocking export
+- 📈 **Progress Updates** - Real-time status messages via Qt signals
+- ⌨️ **Keyboard Shortcuts** - Standard shortcuts for common operations
+
+### User Experience
+
+- 🎨 **Dark Theme** - Comfortable viewing
+- 📋 **Log Output** - Detailed operation log in scrollable text area
+- ⚠️ **Error Dialogs** - Clear QMessageBox for failures
 
 ---
 
@@ -189,12 +403,48 @@ TABLE: Fuel VE Table (16 x 17)
 
 ## 🔍 Data Validation
 
-The exporter includes built-in validation:
+The exporter includes comprehensive built-in validation to catch errors early:
 
-- **Zero-Value Detection**: Warns when >95% of table cells are zero (indicates XDF/BIN mismatch)
-- **Boundary Checking**: Validates addresses don't exceed BIN file size
-- **Checksum Verification**: Calculates MD5/SHA256 for BIN verification
-- **Statistics Analysis**: Provides min/max/avg for quick sanity checks
+### Automatic Checks
+
+| Check | Threshold | Warning Triggered |
+|-------|-----------|-------------------|
+| Zero-value detection | >95% cells are zero | "All data appears to be zero - XDF/BIN mismatch?" |
+| Uniform value detection | 100% cells identical | "All values identical - possible misconfiguration" |
+| Address boundary | Address > BIN size | "Address 0xXXXX out of range for BIN size" |
+| Binary size validation | Not 128/256/512/1024KB | "Unusual binary size" (warning only) |
+
+### BIN File Integrity
+
+On load, the exporter calculates and reports:
+
+- **File size** in bytes and KB
+- **MD5 hash** for file identification/verification
+- **Common size validation** (128KB, 256KB, 512KB, 1MB)
+
+### Table Statistics
+
+Every table includes statistical analysis in the output:
+
+```text
+TABLE: Fuel VE Table (16 x 17)
+  Min: 45.20  Max: 112.80  Avg: 78.43  Unique values: 156
+```
+
+This helps identify:
+
+- **Zero-filled tables** = Wrong XDF for this BIN
+- **Very low unique count** = Possible flat/unused table
+- **Min/Max outside expected range** = Possible address misalignment
+
+### Validation Messages in Console
+
+```text
+INFO: Binary validated: 524288 bytes, MD5: a1b2c3d4e5f6...
+INFO: BASEOFFSET detected: offset=32768 (0x8000), subtract=1
+WARNING: Table "Fuel VE" has 98% zero values - check XDF/BIN match
+ERROR: Address 0x90000 out of range for 512KB BIN file
+```
 
 ---
 
@@ -236,7 +486,7 @@ The following platforms have BIN files but **NO matching XDF definitions**:
 - SR20VE XDF used with SR20DET BINs = garbage output
 - **Alternative**: Use RomRaider XML definitions (different software)
 
-#### Other Brands Needing bin and XDF Definitions
+#### Other Brands Needing bin and XDF Definitions export testings and handling
 If you have proper TunerPro XDF files for these, please contribute:
 
 | Brand | BINs Available | XDFs Available | Need |
@@ -275,6 +525,51 @@ kingai_tunerpro_bin_xdf_combined_export_to_any_document/
 ├── LICENSE                # MIT with Attribution license
 └── .gitignore             # Git ignore rules
 ```
+
+---
+
+## 🏗️ Class & Method Reference
+
+### UniversalXDFExporter (Main Class)
+
+```python
+class UniversalXDFExporter:
+    """Universal XDF parser and exporter with TunerPro-style output"""
+```
+
+| Method | Purpose |
+|--------|---------|
+| `__init__(xdf_path, bin_path)` | Initialize with XDF definition and BIN file paths |
+| `validate_bin_file()` | Check BIN exists, calculate MD5/SHA256, validate size |
+| `parse_xdf()` | Load XDF XML, extract header/categories/elements |
+| `export_to_text(path)` | TunerPro-compatible TXT export |
+| `export_to_json(path)` | Structured JSON export |
+| `export_to_markdown(path)` | Documentation-ready MD export |
+| `export(path)` | Convenience wrapper (validates + parses + exports) |
+
+### Internal Processing Methods
+
+| Method | Purpose |
+|--------|---------|
+| `_extract_header()` | Parse `<XDFHEADER>`, get definition name, BASEOFFSET |
+| `_extract_categories()` | Build category index → name mapping |
+| `_extract_constants()` | Parse all `<XDFCONSTANT>` elements |
+| `_extract_flags()` | Parse all `<XDFFLAG>` elements |
+| `_extract_tables()` | Parse all `<XDFTABLE>` elements with axes |
+| `_get_address(element)` | Universal address extraction (4 fallback methods) |
+| `_parse_embedded_data(element)` | Extract size, signedness, endianness from `mmedtypeflags` |
+| `_xdf_addr_to_file_offset(addr)` | Apply BASEOFFSET translation |
+| `read_value_from_bin(addr, size)` | Read raw bytes from BIN with correct endianness |
+| `evaluate_math(equation, raw)` | Apply XDF math equation (safe eval) |
+| `_read_table_data(table)` | Extract full 2D data matrix from table definition |
+| `_format_value(value, decimalpl)` | Format numeric value with correct decimals |
+
+### GUI Classes (exporter_gui.py)
+
+| Class | Purpose |
+|-------|---------|
+| `ExportWorker(QThread)` | Background thread for non-blocking export |
+| `MainWindow(QMainWindow)` | Main application window with controls |
 
 ---
 
@@ -331,7 +626,7 @@ Commercial use requires written permission from the author.
 
 **KingAi PTY LTD**
 - Specializing in Australian automotive ECU tuning
-- Holden VT/VX/VY/VZ | Ford Falcon BA/BF/FG | BMW E36/E46
+- Holden VT/VX/VY/VZ | Ford Falcon BA/BF/FG | BMW E36/E46/E60
 
 ---
 
