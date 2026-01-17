@@ -73,6 +73,7 @@ import xml.etree.ElementTree as ET
 import struct
 import hashlib
 import logging
+import math
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
 import re
@@ -420,10 +421,11 @@ class UniversalXDFExporter:
                 pass
         
         # Strides for non-contiguous data
+        # BUG FIX #6: Support NEGATIVE strides (BMW backwards addressing)
         major_str = embedded.get('mmedmajorstridebits', '')
         if major_str:
             try:
-                result['major_stride'] = int(major_str)
+                result['major_stride'] = int(major_str)  # Can be negative!
             except ValueError:
                 pass
         
@@ -535,12 +537,16 @@ class UniversalXDFExporter:
         return 'Uncategorized'
     
     def _extract_constants(self):
-        """Extract all constants (SCALAR values)"""
+        """Extract all constants (SCALAR values) with bug fixes"""
         for const in self.xdf_root.findall('.//XDFCONSTANT'):
             # Parse embedded data for full info
             embedded = self._parse_embedded_data(const)
             address = embedded['address']
+            
+            # BUG FIX #5: Validate address exists before processing
             if address is None:
+                title = self._get_title(const)
+                self.logger.warning(f"Constant '{title}' has no address, skipping")
                 continue
             
             title = self._get_title(const)
@@ -556,7 +562,7 @@ class UniversalXDFExporter:
             if math_elem is not None:
                 equation = math_elem.get('equation', '')
             
-            # Get decimal places for precision
+            # Get decimal places for precision (BUG FIX #9)
             decimalpl = 2  # Default
             dec_elem = const.find('.//decimalpl')
             if dec_elem is not None and dec_elem.text:
@@ -565,21 +571,38 @@ class UniversalXDFExporter:
                 except ValueError:
                     pass
             
-            # Get min/max for validation
+            # BUG FIX #8: Extract range validation metadata
             min_val = None
             max_val = None
-            min_elem = const.find('.//min')
-            max_elem = const.find('.//max')
-            if min_elem is not None and min_elem.text:
+            rangelow_elem = const.find('.//rangelow')
+            rangehigh_elem = const.find('.//rangehigh')
+            
+            if rangelow_elem is not None and rangelow_elem.text:
                 try:
-                    min_val = float(min_elem.text.strip())
+                    min_val = float(rangelow_elem.text.strip())
                 except ValueError:
                     pass
-            if max_elem is not None and max_elem.text:
+            if rangehigh_elem is not None and rangehigh_elem.text:
                 try:
-                    max_val = float(max_elem.text.strip())
+                    max_val = float(rangehigh_elem.text.strip())
                 except ValueError:
                     pass
+            
+            # Legacy min/max tags (fallback)
+            if min_val is None:
+                min_elem = const.find('.//min')
+                if min_elem is not None and min_elem.text:
+                    try:
+                        min_val = float(min_elem.text.strip())
+                    except ValueError:
+                        pass
+            if max_val is None:
+                max_elem = const.find('.//max')
+                if max_elem is not None and max_elem.text:
+                    try:
+                        max_val = float(max_elem.text.strip())
+                    except ValueError:
+                        pass
             
             self.elements['constants'].append({
                 'title': title,
@@ -930,7 +953,7 @@ class UniversalXDFExporter:
             return None
     
     def _read_table_data(self, table: Dict) -> Optional[List[List[float]]]:
-        """Read full 2D/3D table data from binary"""
+        """Read full 2D/3D table data from binary with NEGATIVE STRIDE support (BUG FIX #6)"""
         z_axis = table['axes'].get('z', {})
         y_axis = table['axes'].get('y', {})
         x_axis = table['axes'].get('x', {})
@@ -961,14 +984,43 @@ class UniversalXDFExporter:
         signed = z_axis.get('signed', False)
         lsb_first = z_axis.get('lsb_first', False)
         
+        # BUG FIX #6: Get strides (can be NEGATIVE for BMW!)
+        major_stride = z_axis.get('major_stride', size_bits)
+        minor_stride = z_axis.get('minor_stride', size_bits)
+        
+        # Convert bit strides to bytes
+        if major_stride == 0:
+            major_stride = size_bits
+        if minor_stride == 0:
+            minor_stride = size_bits
+        
+        major_stride_bytes = major_stride // 8
+        minor_stride_bytes = minor_stride // 8
+        
+        # Handle NEGATIVE stride (backwards addressing for BMW XDFs)
+        if major_stride < 0:
+            # Start at the END of the data block for backwards addressing
+            start_address = base_address + (rows - 1) * abs(major_stride_bytes) * cols
+            major_stride_bytes = -abs(major_stride_bytes)  # Keep negative for decrement
+            self.logger.info(f"Table '{table['title']}' uses NEGATIVE stride (BMW backwards addressing)")
+        else:
+            start_address = base_address
+        
         # Read table data
         data = []
         
         for row in range(rows):
             row_data = []
             for col in range(cols):
-                offset = (row * cols + col) * size_bytes
-                address = base_address + offset
+                # BUG FIX #6: Calculate offset with support for negative stride
+                if major_stride < 0:
+                    offset = start_address - (row * abs(major_stride_bytes) * cols) + (col * minor_stride_bytes)
+                else:
+                    offset = (row * cols + col) * size_bytes
+                    address = base_address + offset
+                
+                if major_stride < 0:
+                    address = offset
                 
                 # Convert to file offset for bounds checking
                 file_offset = self._xdf_addr_to_file_offset(address)
@@ -989,9 +1041,15 @@ class UniversalXDFExporter:
                     row_data.append(0.0)
                     continue
                 
-                # Apply math equation
+                # BUG FIX #7: Apply math equation with axis context for multi-variable support
                 if math_eq:
-                    final_value, _ = self.evaluate_math(math_eq, raw_value)
+                    axis_context = {
+                        'row_index': row,
+                        'col_index': col,
+                        'y_axis_value': y_axis.get('labels', [])[row] if row < len(y_axis.get('labels', [])) else 0,
+                        'x_axis_value': x_axis.get('labels', [])[col] if col < len(x_axis.get('labels', [])) else 0
+                    }
+                    final_value, _ = self.evaluate_math(math_eq, raw_value, axis_context)
                     if final_value is not None:
                         row_data.append(final_value)
                     else:
@@ -1042,24 +1100,44 @@ class UniversalXDFExporter:
             'stats': stats
         }
     
-    def evaluate_math(self, equation: str, raw_value: int) -> Tuple[Optional[float], str]:
+    def evaluate_math(self, equation: str, raw_value: int, axis_context: Optional[Dict] = None) -> Tuple[Optional[float], str]:
         """
-        Evaluate math equation with case-insensitive variables
+        Evaluate math equation with comprehensive variable and function support
         
-        Handles edge cases:
-        - Equations starting with '*' (e.g., "*2**14") - prepend X
-        - Named variables like X1000, X100, E, etc. from XDF <VAR> elements
-        - Standard single-letter variables (X, E, A, Y, Z)
+        FIXED BUGS:
+        - #1: Division by zero protection (check for inf/nan)
+        - #2: XML entity stripping (&#013;&#010; etc)
+        - #3: Exponential/math functions (exp, log, sqrt, pow)
+        - #4: Null equation handling ((null), null, empty)
+        - #7: Multi-variable support (A, B, Y, E, Z for tables)
         
         Args:
             equation: Math equation string (e.g., "0.75 * X - 40")
             raw_value: Raw binary value
+            axis_context: Optional dict with 'row_index', 'col_index', 'x_axis_value', 'y_axis_value'
             
         Returns:
-            Tuple[float, str]: (result, error_message)
+            Tuple[Optional[float], str]: (result, error_message)
         """
-        if not equation:
+        if axis_context is None:
+            axis_context = {}
+        
+        # BUG FIX #2: Strip XML entities (&#013;&#010; = CRLF, etc)
+        equation = re.sub(r'&#\d+;', '', equation)
+        equation = equation.strip()
+        
+        # BUG FIX #4: Handle null/empty equations
+        if not equation or equation.lower() in ('(null)', 'null', ''):
             return float(raw_value), ""
+        
+        # Handle simple X passthrough
+        if equation.strip().upper() == 'X':
+            return float(raw_value), ""
+        
+        # BUG FIX #1: Pre-check for potential division by zero
+        if raw_value == 0 and re.search(r'/\s*[xX]\b', equation):
+            self.logger.warning(f"Potential division by zero in equation: {equation} (X=0)")
+            # Continue anyway, let exception handler catch actual errors
         
         try:
             equation_fixed = equation.strip()
@@ -1069,26 +1147,63 @@ class UniversalXDFExporter:
                 equation_fixed = 'X' + equation_fixed
             
             # Replace named variables like X1000, X100, X10 with the raw value
-            # These are TunerPro-specific variable references that all mean "the value"
             equation_fixed = re.sub(r'\bX\d+\b', str(raw_value), equation_fixed, flags=re.IGNORECASE)
             
-            # Replace common variable names (case-insensitive) with uppercase
-            for var in ['x', 'X', 'e', 'E', 'a', 'A', 'y', 'Y', 'z', 'Z']:
-                # Use word boundaries to avoid replacing in function names or numbers
-                pattern = r'\b' + var + r'\b'
-                equation_fixed = re.sub(pattern, 'X', equation_fixed, flags=re.IGNORECASE)
-            
-            # Create safe evaluation namespace
+            # BUG FIX #3 & #7: Create comprehensive evaluation namespace
             namespace = {
+                # Primary data value
                 'X': raw_value,
+                'x': raw_value,
+                
+                # Multi-variable support (for tables with axis context)
+                'A': axis_context.get('row_index', 0),
+                'a': axis_context.get('row_index', 0),
+                'B': axis_context.get('col_index', 0),
+                'b': axis_context.get('col_index', 0),
+                'E': axis_context.get('row_index', 0),  # Alternative to A
+                'e': axis_context.get('row_index', 0),
+                'Y': axis_context.get('y_axis_value', 0),
+                'y': axis_context.get('y_axis_value', 0),
+                'Z': axis_context.get('x_axis_value', 0),
+                'z': axis_context.get('x_axis_value', 0),
+                
+                # Math functions (for exponential equations)
+                'exp': math.exp,
+                'log': math.log,
+                'log10': math.log10,
+                'sqrt': math.sqrt,
+                'pow': math.pow,
+                'abs': abs,
+                'sin': math.sin,
+                'cos': math.cos,
+                'tan': math.tan,
+                
+                # Mathematical constants
+                'E': math.e,
+                'PI': math.pi,
+                'pi': math.pi,
+                
                 '__builtins__': {}
             }
             
-            # Evaluate
+            # Evaluate the expression
             result = eval(equation_fixed, namespace)
+            
+            # BUG FIX #1: Check for invalid results (inf/nan from division by zero)
+            if math.isinf(result):
+                self.logger.warning(f"Equation resulted in infinity: {equation} (X={raw_value})")
+                return None, f"Division by zero (result=inf)"
+            if math.isnan(result):
+                self.logger.warning(f"Equation resulted in NaN: {equation} (X={raw_value})")
+                return None, f"Invalid math operation (result=NaN)"
+            
             return float(result), ""
             
+        except ZeroDivisionError:
+            self.logger.warning(f"Division by zero in equation: {equation} (X={raw_value})")
+            return None, f"Division by zero"
         except Exception as e:
+            self.logger.error(f"Math evaluation failed for '{equation}' with X={raw_value}: {str(e)}")
             return None, f"Math evaluation failed: {str(e)}"
     
     def export_to_text(self, output_path: str) -> bool:
@@ -1836,10 +1951,16 @@ def main():
         print("  md   - Markdown format for documentation")
         print("  all  - Export all formats (txt, json, md)")
         print()
+        print("Options:")
+        print("  --flip-rpm     Flip RPM axis (high-to-low instead of low-to-high)")
+        print("  --flip-load    Flip load axis for presentation")
+        print("  --no-stats     Omit statistical analysis from output")
+        print()
         print("Examples:")
         print(f"  python {sys.argv[0]} def.xdf fw.bin out.txt")
         print(f"  python {sys.argv[0]} def.xdf fw.bin out.json json")
         print(f"  python {sys.argv[0]} def.xdf fw.bin export all")
+        print(f"  python {sys.argv[0]} def.xdf fw.bin export.txt --flip-rpm")
         print()
         print("Features:")
         print("  ✅ Full table data extraction (TunerPro fails at this!)")
@@ -1847,6 +1968,7 @@ def main():
         print("  ✅ Statistical analysis (min/max/avg)")
         print("  ✅ Data integrity validation")
         print("  ✅ Multiple output formats (TXT, JSON, MD)")
+        print("  ✅ Axis flip options for presentation preference")
         print()
         sys.exit(1)
     
