@@ -81,6 +81,12 @@ import sys
 import statistics
 import json
 from datetime import datetime
+import io
+
+# Fix Windows console encoding for UTF-8 characters
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 
 __version__ = "3.2.0"  # Added XDFPATCH Community Patchlist support
