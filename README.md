@@ -5,43 +5,57 @@
 [![License](https://img.shields.io/badge/License-MIT%20with%20Attribution-green)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
-**Universal XDF to Text Exporter - Enhanced Beyond TunerPro**
+**XDF + BIN export helper for regression testing and automation**
 
-A powerful Python tool that exports ECU calibration data from TunerPro XDF definition files combined with BIN firmware files to multiple formats: TXT, JSON, and Markdown.
-its needing to be fixed now the xdf for 2.09a with enhanced bin for vy v6 anymore since last update, isnt exporting properly alot of maps are out of wack.... same with 92118883.bin the stock oem tune.\
-need to check with terminal against the xdf and this code for the reasons why could be math?
+A powerful Python tool that exports ECU calibration data from TunerPro XDF definition files combined with matching BIN firmware files to multiple formats: TXT, JSON, Markdown, and CSV.
+
+The exporter is intended to be ECU-family neutral, but compatibility must be proven per XDF/BIN pair. BMW MS42/MS43/MS45, Holden/GM V6/V8, Ford/Barra-adjacent Bosch work, and other XDF-defined projects can use different addressing, axis, math, and patch conventions. This tool is a companion/export layer for automation and regression testing; it is not a replacement for TunerPro validation.
+
+Older Holden VY/VX/V6 Enhanced and stock BIN pairs remain important regression targets, and the `v2.09` XDF family needs fresh verification against current TunerPro behavior and current public XDFs. Before changing parser math, axis handling, endian handling, or BASEOFFSET behavior, re-export those pairs plus the BMW fixtures and compare outputs so fixes for one family do not break another.
+
+### XDF Iteration + Reverse Engineering Workflow
+
+This exporter is useful while building or repairing XDFs during reverse engineering. A practical loop is:
+
+1. Load the firmware in Ghidra/IDA and use Ghidra `analyzeHeadless` to export labels, xrefs, immediate-hit windows, and function context.
+2. Add or adjust candidate XDF entries from RR/A2L/DAMOS/ASM evidence.
+3. Run this exporter against the candidate XDF + matching BIN.
+4. Check whether axes, dimensions, units, endian, signedness, and table values look sane.
+5. Diff the export against known-good stock/stage files and repeat until the XDF is stable.
+
+That makes it a fast feedback tool for XDF development: disassembly finds likely addresses and code-use, while the exporter shows whether the candidate XDF renders consistently as calibration data. Final truth still comes from comparing against TunerPro, known-good bins, and platform-specific test fixtures.
 
 ---
 
 ## 💡 Why This Tool Exists
 
-**TunerPro exports zeros instead of actual table data.**
+**Some historical XDF/BIN export paths produced zero-filled table data in text exports.**
 
-When exporting calibration data from TunerPro using certain XDF/BIN combinations, all table cell values show as `0.00` - even though the data displays correctly inside TunerPro itself. This affects:
+During earlier testing, some XDF/BIN combinations produced table cell values as `0.00` in exported text even though the data displayed correctly in the GUI. TunerPro has continued to evolve, so treat this as a regression target to verify against the current TunerPro build rather than a permanent claim about TunerPro itself. Historical examples include:
 
 - **Holden VY V6 $060A** - Enhanced v2.09a XDF + Enhanced v1.0 BIN → zeros
 - **Holden VS Supercharged $51** - Various XDF/BIN combos → zeros  
 - **Other GM/Holden platforms** - VT, VX, VE with certain Enhanced OS XDFs
 
-This tool was built to solve that problem. It reads the XDF definition and BIN file directly, correctly extracting **all** table cell data, axis values, and statistics that TunerPro fails to export.
+This tool was built to make those cases testable from the command line. It reads the XDF definition and BIN file directly, exports resolved values where the parser supports the XDF pattern, and produces repeatable output for comparison with TunerPro and known-good fixtures.
 
 ---
 
 ## 🌟 Features
 
-### Data Extraction (vs TunerPro) (soon to add same export format as stock standard tunerpro as a on and off option in cli and gui)
+### Data Extraction for CLI Workflows
 
-| Feature | TunerPro Export | KingAI Exporter |
-|---------|-----------------|-----------------|
-| Scalar values | ✓ | ✓ |
-| Flag values | ✓ | ✓ |
-| Table headers | ✓ | ✓ |
-| **Table cell data** | ✗ (exports zeros) | **✓ Full data** |
-| Axis values | ✗ | **✓ Displayed** |
-| Statistics (min/max/avg) | ✗ | **✓ Included** |
-| Zero-value warnings | ✗ | **✓ Warns user** |
-| Multi-format export | ✗ | **✓ TXT/JSON/MD/CSV** |
-| **XDFPATCH detection** | ✗ | **✓ Shows applied patches** |
+| Feature | Status |
+|---------|--------|
+| Scalar values | Supported where the XDF math/addressing pattern is implemented |
+| Flag values | Supported where the XDF math/addressing pattern is implemented |
+| Table headers | Supported |
+| Table cell data | Supported for verified XDF/BIN fixtures |
+| Axis values | Displayed when axis linking or embedded axis data resolves correctly |
+| Statistics (min/max/avg) | Included for resolved tables |
+| Zero-value warnings | Warns when output looks suspicious |
+| Multi-format export | TXT/JSON/MD/CSV |
+| XDFPATCH detection | Shows applied/not-applied status for supported patch patterns |
 
 ### 🔧 Supported XDF Variations
 
@@ -57,7 +71,7 @@ This tool was built to solve that problem. It reads the XDF definition and BIN f
 - Detects all `XDFPATCH` elements (Immobilizer Bypass, Alpha/N, Launch Control, etc.)
 - Checks if each patch is **Applied**, **Not Applied**, or **Partial**
 - Exports patch status in all output formats (TXT, JSON, Markdown)
-- Perfect for analyzing BMW MS42/MS43 tunes with community patches
+- Useful for analyzing supported BMW MS42/MS43 community patchlist fixtures
 
 Example output:
 ```
@@ -477,25 +491,25 @@ ERROR: Address 0x90000 out of range for 512KB BIN file
 
 ## ⚠️ Compatibility Status & Known Issues
 
-### ✅ WORKING - Fully Tested XDF/BIN Combinations (v3.4.0)
+### Historical Regression Fixtures
 
 | Platform | XDF | BIN Example | Status | Notes |
 |----------|-----|-------------|--------|-------|
-| **Holden VY V6 $060A** | Enhanced v2.09b | VY_V6_Enhanced.bin | ✅ **Perfect** | 1310 scalars, 548 flags, 330 tables |
-| **Holden VY V6 $060A** | Enhanced v2.09a | VX-VY_V6_$060A_Enhanced_v1.0a.bin | ✅ **Perfect** | 1310 scalars, 351 flags, 330 tables |
-| **Holden VY V6 $060A** | Enhanced v2.04 | VX-VY_V6_$060A_Enhanced_v1.1a.bin | ✅ **Perfect** | 1163 scalars, 94 flags, 338 tables |
-| **Holden VX/VY V6 SC $07** | Enhanced v2.6h | VX-VY_V6_SC_$07_Enhanced_v1.2.bin | ✅ **Perfect** | 354 scalars, 60 flags, 175 tables |
-| **Holden VS V6 $51** | Enhanced v1.4f | VS_V6_$51_Enhanced_v1.4b.bin | ✅ **Perfect** | 681 scalars, 147 flags, 256 tables |
-| **Holden VS V6 SC $51** | Enhanced v1.0c | VS_V6_SC_$51_Enhanced_v1.0a.bin | ✅ **Perfect** | 679 scalars, 167 flags, 253 tables |
-| **Holden VS V8 $A6F** | Enhanced v0.90 | VS_V8_$A6F_Enhanced_v0.90.bin | ✅ **Perfect** | 110 scalars, 5 flags, 74 tables |
-| **Holden VT V6 $A5G** | Enhanced v1.0h | VT_V6_AUTO_$A5G_Enhanced_v1.1.bin | ✅ **Perfect** | 166 scalars, 8 flags, 108 tables |
-| **Holden VT V6 SC $A5G** | Enhanced v1.3h | VT_V6_SC_$A5G_Enhanced_v1.3.bin | ✅ **Perfect** | 158 scalars, 6 flags, 119 tables |
-| **Holden VT V8 $A6E** | Enhanced v1.03 | VT_V8_$A6E_Enhanced_v1.00.bin | ✅ **Perfect** | 81 scalars, 6 flags, 77 tables |
-| **Ford AU OSE 11P** | V104 decrypted | OSE_$11P V104 CAKH V6.BIN | ✅ **Perfect** | 616 scalars, 332 flags, 195 tables |
-| **Ford AU OSE 11B** | V106 | OSE_$11P V104 CAKH V6.BIN | ✅ **Perfect** | 746 scalars, 280 flags, 242 tables |
-| **BMW MS42 0110C6** | ENG 512K v1.1 | cfm54b30.bin | ✅ **Perfect** | 1384 scalars, 597 tables |
-| **BMW MS42 0110AD** | ENG 32KB | 25_MS42_0110AD_32KB_cut.bin | ✅ **Perfect** | 1347 scalars, 974 tables |
-| **BMW MS42 Community** | Patchlist v1.7.1 | cfm54b30.bin | ✅ **Perfect** | 1384 scalars, 597 tables |
+| **Holden VY V6 $060A** | Enhanced v2.09b | VY_V6_Enhanced.bin | Needs re-test | 1310 scalars, 548 flags, 330 tables in historical snapshot |
+| **Holden VY V6 $060A** | Enhanced v2.09a | VX-VY_V6_$060A_Enhanced_v1.0a.bin | Needs re-test | 1310 scalars, 351 flags, 330 tables in historical snapshot |
+| **Holden VY V6 $060A** | Enhanced v2.04 | VX-VY_V6_$060A_Enhanced_v1.1a.bin | Snapshot | 1163 scalars, 94 flags, 338 tables |
+| **Holden VX/VY V6 SC $07** | Enhanced v2.6h | VX-VY_V6_SC_$07_Enhanced_v1.2.bin | Snapshot | 354 scalars, 60 flags, 175 tables |
+| **Holden VS V6 $51** | Enhanced v1.4f | VS_V6_$51_Enhanced_v1.4b.bin | Snapshot | 681 scalars, 147 flags, 256 tables |
+| **Holden VS V6 SC $51** | Enhanced v1.0c | VS_V6_SC_$51_Enhanced_v1.0a.bin | Snapshot | 679 scalars, 167 flags, 253 tables |
+| **Holden VS V8 $A6F** | Enhanced v0.90 | VS_V8_$A6F_Enhanced_v0.90.bin | Snapshot | 110 scalars, 5 flags, 74 tables |
+| **Holden VT V6 $A5G** | Enhanced v1.0h | VT_V6_AUTO_$A5G_Enhanced_v1.1.bin | Snapshot | 166 scalars, 8 flags, 108 tables |
+| **Holden VT V6 SC $A5G** | Enhanced v1.3h | VT_V6_SC_$A5G_Enhanced_v1.3.bin | Snapshot | 158 scalars, 6 flags, 119 tables |
+| **Holden VT V8 $A6E** | Enhanced v1.03 | VT_V8_$A6E_Enhanced_v1.00.bin | Snapshot | 81 scalars, 6 flags, 77 tables |
+| **Ford AU OSE 11P** | V104 decrypted | OSE_$11P V104 CAKH V6.BIN | Snapshot | 616 scalars, 332 flags, 195 tables |
+| **Ford AU OSE 11B** | V106 | OSE_$11P V104 CAKH V6.BIN | Snapshot | 746 scalars, 280 flags, 242 tables |
+| **BMW MS42 0110C6** | ENG 512K v1.1 | cfm54b30.bin | Snapshot | 1384 scalars, 597 tables |
+| **BMW MS42 0110AD** | ENG 32KB | 25_MS42_0110AD_32KB_cut.bin | Snapshot | 1347 scalars, 974 tables |
+| **BMW MS42 Community** | Patchlist v1.7.1 | cfm54b30.bin | Snapshot | 1384 scalars, 597 tables |
 
 ### 🔄 FIXED in v3.3.0 & v3.4.0
 

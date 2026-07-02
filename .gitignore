@@ -51,6 +51,7 @@ desktop.ini
 # Test outputs
 *.log
 test_output/
+ignore/
 
 # Test data (internal reference only)
 test_data/
@@ -80,6 +81,11 @@ _list_tables.py
 _quick_axis.py
 read_json_summary.py
 scan_nonbin.py
+_check_e60_sanity.py
+_test_e60_validity.py
+batch_*_manifest.csv
+batch_*_remaining.csv
+test_*_zeros.md
 
 # Archive (old exporter version)
 tunerpro_exporter_old_version_before_address_parsing.py
