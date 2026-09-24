@@ -92,3 +92,11 @@ tunerpro_exporter_old_version_before_address_parsing.py
 
 # Private dev notes (NOT for public release)
 DEV_NOTES_PRIVATE.md
+
+# Local verification and generated diagnostics
+_ai_work/
+.pytest_cache/
+out*_diagnostics.json
+*_zeros.md
+dist-verify/
+.test-runs/

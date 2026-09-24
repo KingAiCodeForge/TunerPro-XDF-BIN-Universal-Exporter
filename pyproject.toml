@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kingai-tunerpro-xdf"
+version = "3.7.2"
+description = "Shared TunerPro XDF parsing and BIN export implementation"
+requires-python = ">=3.10"
+readme = "README.md"
+license = "LicenseRef-KingAI-Source-Available"
+license-files = ["LICENSE"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.urls]
+Repository = "https://github.com/KingAiCodeForge/TunerPro-XDF-BIN-Universal-Exporter"
+
+[project.scripts]
+tunerpro-xdf-export = "tunerpro_exporter:main"
+
+[tool.setuptools]
+py-modules = ["tunerpro_exporter"]
+packages = ["tunerpro_xdf"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+norecursedirs = [".git", ".venv", "ignore", "_ai_work", "test_data", "build", "dist"]
+addopts = "--strict-markers"

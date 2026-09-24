@@ -2,10 +2,58 @@
 
 [![Author](https://img.shields.io/badge/Author-Jason%20King-blue)](https://github.com/KingAiCodeForge)
 [![GitHub](https://img.shields.io/badge/GitHub-KingAiCodeForge-181717?logo=github)](https://github.com/KingAiCodeForge)
-[![License](https://img.shields.io/badge/License-MIT%20with%20Attribution-green)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-Custom%20Source--Available-orange)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 **XDF + BIN export helper for regression testing and automation**
+
+### Shared exporter package, version 3.7.2
+
+The CLI and shared `tunerpro_xdf` modules install together. No other local
+repository or GUI dependency is needed for the command-line exporter:
+
+```console
+python -m pip install .
+tunerpro-xdf-export --help
+tunerpro-xdf-export definition.xdf firmware.bin export.json
+```
+
+This release validates the supported metadata and values before opening an
+export, rejects ambiguous duplicate identifiers, and refuses output paths
+that alias the input XDF or BIN. Unsupported storage and equations return failure;
+successful parsing alone does not establish compatibility with native TunerPro.
+
+The compatibility reference checked on 24 September 2026 is **TunerPro RT
+5.00.10305**, released 21 January 2026 on the [official download page](https://www.tunerpro.net/downloadApp.htm).
+The installed version matches that listing. Its bundled XDF Table Editor help
+documents zero-based equation indices and cell, row, column, then global
+equation priority. The exporter follows those rules. Non-default table strides
+and storage flags whose meaning is not established are rejected pending native
+comparison fixtures. The tests establish the documented behavior and bounded
+file access; they are not a claim of complete native parity or flash safety.
+
+An unresolved linked axis is an explicit error, even where native TunerPro
+displays zero labels. Definitions with that defect, unverified storage flags,
+or non-default table strides may therefore stop exporting in this version.
+The original XDF and BIN are left untouched; correct the definition or retain
+the older tool for separately reviewed exploratory work.
+
+The packaged release is the read-only exporter core. The GUI, BMW converter
+and historical collection/organizer scripts are separate repository tools and
+are not included in the wheel or covered by this release's validation.
+The licence remains the existing **custom source-available licence**, including
+the requirement for commercial-use permission; its terms have not been changed.
+
+Portable tests use synthetic data. Optional local compatibility fixtures are
+selected explicitly with `KINGAI_TEST_MS42_XDF`, `KINGAI_TEST_MS42_NATIVE_EXPORT`
+and `KINGAI_TEST_MS41_DEFINITIONS`; they are skipped when not supplied. Private
+firmware, native captures and generated diagnostics are not distributed.
+
+```console
+python -m pip install ".[test]" build
+python -m pytest
+python -m build
+```
 
 A powerful Python tool that exports ECU calibration data from TunerPro XDF definition files combined with matching BIN firmware files to multiple formats: TXT, JSON, Markdown, and CSV.
 
@@ -61,12 +109,12 @@ This tool was built to make those cases testable from the command line. It reads
 
 - Standard format (`mmedaddress`, `mmedelementsizebits`)
 - Alternative format (`mmedtypeflags`)
-- All element types: `XDFCONSTANT`, `XDFFLAG`, `XDFTABLE`, `XDFHEADER`, `XDFPATCH`
-- Various structural variations
+- Supported element types: `XDFCONSTANT`, `XDFFLAG`, `XDFTABLE`, `XDFHEADER`, `XDFPATCH`
+- Only the metadata, equations and layouts covered by the implementation and tests
 
 ### 🔌 XDFPATCH Support (Community Patchlist)
 
-**NEW in v3.2.0!** Full support for BMW MS4X and similar Community Patchlist XDF files:
+Read-only status comparison for supported BMW MS4X and similar Community Patchlist XDF patterns:
 
 - Detects all `XDFPATCH` elements (Immobilizer Bypass, Alpha/N, Launch Control, etc.)
 - Checks if each patch is **Applied**, **Not Applied**, or **Partial**
@@ -90,7 +138,7 @@ Total Patches: 27
 
 ### 📄 Output Formats
 
-1. **TXT** - TunerPro-compatible text format
+1. **TXT** - Project text export; native parity must be established per fixture
 2. **JSON** - Structured data for programmatic use
 3. **Markdown** - Documentation-ready format
 4. **CSV** - Spreadsheet-compatible format
@@ -104,8 +152,8 @@ Total Patches: 27
 
 1. Download or clone this repository:
    ```batch
-   git clone https://github.com/KingAiCodeForge/kingai_tunerpro_bin_xdf_combined_export_to_any_document.git
-   cd kingai_tunerpro_bin_xdf_combined_export_to_any_document
+   git clone https://github.com/KingAiCodeForge/TunerPro-XDF-BIN-Universal-Exporter.git
+   cd TunerPro-XDF-BIN-Universal-Exporter
    ```
 
 2. Run the installer (as Administrator for PATH setup):
@@ -117,11 +165,12 @@ Total Patches: 27
 
 ### Manual Installation
 
-1. Ensure Python 3.8+ is installed
+1. Ensure Python 3.10+ is installed
 2. Install dependencies:
    ```batch
-   pip install -r requirements.txt
+   python -m pip install .
    ```
+   For the optional source-tree GUI, additionally install `requirements.txt`.
 
 ---
 
@@ -213,7 +262,7 @@ The exporter uses a modular pipeline approach:
 ```
 XDF File (XML) ──► Parse Structure ──► Extract Elements ──► Read Binary ──► Apply Math ──► Export
      │                  │                    │                  │              │            │
-     └─ ET.parse()      └─ _extract_*()     └─ 3 types:        └─ struct     └─ eval()    └─ TXT/JSON/MD
+     └─ ET.parse()      └─ _extract_*()     └─ 3 types:        └─ struct     └─ AST math └─ TXT/JSON/MD
                                                 Constants         unpack                     CSV
                                                 Flags
                                                 Tables
@@ -261,8 +310,9 @@ The exporter correctly handles both big-endian and little-endian data:
 
 ```python
 # mmedtypeflags bit meanings:
-# Bit 0 (0x01): LSB first (little-endian)
-# Bit 1 (0x02): Signed value
+# Bit 0 (0x01): Signed value
+# Bit 1 (0x02): LSB first (little-endian)
+# Bit 16 (0x10000): IEEE754 floating point (32 or 64 bits)
 
 # Supported data sizes: 8-bit, 16-bit, 32-bit
 # Format specifiers: B/b (8), H/h (16), I/i (32)
@@ -276,11 +326,13 @@ Handles TunerPro's math syntax with edge case handling:
 ```python
 # Standard: "0.75 * X - 40"
 # Named variables: "X1000 / 100" → replaced with raw value
-# Operator prefix: "*2**14" → prepended with X
-# Case-insensitive: "x", "X", "e", "E" all work
+# Operator prefix: "*2**14" is invalid and rejected
+# Variables are case-insensitive but must have a supplied value
 ```
 
-**Safe Evaluation:** Uses restricted `eval()` with `__builtins__: {}` for security.
+**Equation evaluation:** Uses a bounded AST interpreter, without Python `eval()`
+or `exec()`. Unknown syntax, missing variables, domain errors and excessive
+expression sizes are rejected.
 
 ### Data Validation Pipeline
 
@@ -513,6 +565,10 @@ ERROR: Address 0x90000 out of range for 512KB BIN file
 
 ### 🔄 FIXED in v3.3.0 & v3.4.0
 
+The following is historical implementation information. Version 3.7.2 uses
+the bounded interpreter described above and does not invent values for missing
+variables or convert malformed equations into different expressions.
+
 | Bug | Formula/Feature | Root Cause | Fix |
 |-----|-----------------|-----------|-----|
 | **#8** | `if(cond ; true ; false)` | TunerPro ternary syntax not valid Python | Convert to `(true) if (cond) else (false)` |
@@ -577,16 +633,18 @@ Some older XDF files use non-standard formats:
 ## 📁 Project Structure
 
 ```
-kingai_tunerpro_bin_xdf_combined_export_to_any_document/
-├── tunerpro_exporter.py   # Main CLI exporter (v3.4.0)
+TunerPro-XDF-BIN-Universal-Exporter/
+├── tunerpro_exporter.py   # Main CLI exporter (v3.7.2)
+├── tunerpro_xdf/          # Shared addressing, values and bounded equations
+├── pyproject.toml        # Package and command-line entry point
 ├── exporter_gui.py        # PySide6 Qt GUI frontend (v3.2.0)
-├── regression_test.py     # Automated regression tests (16 XDF/BIN pairs)
+├── test_*.py              # Portable synthetic regression tests
 ├── install.bat            # Windows installer with PATH setup
 ├── launch_cli.bat         # Quick CLI launcher
 ├── launch_gui.bat         # Quick GUI launcher
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This documentation
-├── LICENSE                # MIT with Attribution license
+├── LICENSE                # Custom source-available licence
 └── .gitignore             # Git ignore rules
 ```
 
@@ -606,7 +664,7 @@ class UniversalXDFExporter:
 | `__init__(xdf_path, bin_path)` | Initialize with XDF definition and BIN file paths |
 | `validate_bin_file()` | Check BIN exists, calculate MD5/SHA256, validate size |
 | `parse_xdf()` | Load XDF XML, extract header/categories/elements |
-| `export_to_text(path)` | TunerPro-compatible TXT export |
+| `export_to_text(path)` | Project TXT export; native parity is fixture-specific |
 | `export_to_json(path)` | Structured JSON export |
 | `export_to_markdown(path)` | Documentation-ready MD export |
 | `export(path)` | Convenience wrapper (validates + parses + exports) |
@@ -627,7 +685,7 @@ class UniversalXDFExporter:
 | `_parse_embedded_data(element)` | Extract size, signedness, endianness from `mmedtypeflags` |
 | `_xdf_addr_to_file_offset(addr)` | Apply BASEOFFSET translation |
 | `read_value_from_bin(addr, size)` | Read raw bytes from BIN with correct endianness |
-| `evaluate_math(equation, raw)` | Apply XDF math equation (safe eval, linked vars, ternary) |
+| `evaluate_math(equation, raw)` | Apply supported equations using a bounded AST interpreter |
 | `_read_table_data(table)` | Extract full 2D data matrix from table definition |
 | `_format_value(value, decimalpl)` | Format numeric value with correct decimals |
 
@@ -644,7 +702,7 @@ class UniversalXDFExporter:
 
 ### Requirements
 
-- Python 3.8 or higher
+- Python 3.10 or higher
 - PySide6 (for GUI only - CLI works without it)
 
 ### Dependencies
