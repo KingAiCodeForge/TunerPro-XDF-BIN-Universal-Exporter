@@ -28,3 +28,22 @@ def test_base_offset_matches_documented_add_and_subtract_examples():
     assert file_offset(0x80F0, 0x8000, 1) == 0xF0
     with pytest.raises(ValueError):
         file_offset(0xF0, 0x4000, 2)
+
+
+def test_column_major_cells_follow_tunerpro_flag_semantics():
+    layout = TableLayout(0x100, 2, 3, 8, row_major=False)
+    assert [[layout.cell_address(r, c) for c in range(3)] for r in range(2)] == [
+        [0x100, 0x102, 0x104],
+        [0x101, 0x103, 0x105],
+    ]
+    assert layout.file_span() == (0x100, 0x106)
+
+
+def test_table_layout_derives_column_major_from_type_flags_bit_2():
+    from tunerpro_xdf.xdf_addressing import table_layout
+    table = {"axes": {"z": {"address": 0x200, "row_count": 17, "col_count": 3,
+                              "size_bits": 8, "type_flags": 0x04}}}
+    layout = table_layout(table)
+    assert layout.row_major is False
+    assert [layout.cell_address(0, c) for c in range(3)] == [0x200, 0x211, 0x222]
+    assert [layout.cell_address(16, c) for c in range(3)] == [0x210, 0x221, 0x232]
