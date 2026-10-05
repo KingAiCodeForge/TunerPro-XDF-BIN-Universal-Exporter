@@ -39,7 +39,7 @@ class TableLayout:
     def cell_address(self, row: int, col: int) -> int:
         if not (0 <= row < self.rows and 0 <= col < self.cols):
             raise IndexError("XDF table cell is outside its declared dimensions")
-        return self.address + (row * self.cols + col) * self.width
+        index = (row * self.cols + col) if self.row_major else (col * self.rows + row)\n        return self.address + index * self.width
 
     def validate_write(self) -> None:
         # Kept as a public guard for editor callers. Construction already
