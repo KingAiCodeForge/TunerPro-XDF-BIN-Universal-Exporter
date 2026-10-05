@@ -150,7 +150,7 @@ def clean_output_text(value: Any) -> str:
     return text
 
 
-__version__ = "3.7.2"  # Shared XDF implementation for exporter and CLI editor.
+__version__ = "3.7.3"  # Shared XDF implementation for exporter and CLI editor.
 __author__ = "Jason King"
 __author_github__ = "KingAiCodeForge"
 __author_alias__ = "kingaustraliagg"  # PCMHacking forum username
@@ -2046,7 +2046,7 @@ class UniversalXDFExporter:
         # Bits: 0x01 signed, 0x02 LSB-first, 0x10000 float (all handled at read).
         # Additional flags need controlled native parity; plausible numerical
         # output alone cannot establish their storage semantics.
-        if flags & ~(0x03 | FLOAT_FLAG):
+        if flags & ~(0x07 | FLOAT_FLAG):
             raise ValueError("Unsupported XDF storage flags; integer decoding is not established")
         if flags & FLOAT_FLAG and item.get('size', item.get('size_bits')) not in (32, 64):
             raise ValueError("XDF float cells must be 32 or 64 bits wide")
