@@ -100,3 +100,9 @@ out*_diagnostics.json
 *_zeros.md
 dist-verify/
 .test-runs/
+
+# Machine-specific configuration and runtime secrets
+/local/
+.env
+.env.*
+!.env.example
