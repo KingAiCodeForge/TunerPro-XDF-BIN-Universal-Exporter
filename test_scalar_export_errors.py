@@ -1,5 +1,6 @@
 import logging
 import unittest
+import xml.etree.ElementTree as ET
 
 from tunerpro_exporter import UniversalXDFExporter
 
@@ -29,6 +30,18 @@ class ScalarExportErrorTests(unittest.TestCase):
 
         self.assertEqual(value, 42)
         self.assertIsNone(error)
+
+    def test_explicit_blank_math_is_not_reported_as_physical_raw_value(self):
+        item = {
+            "title": "Unknown frequency",
+            "equation": "",
+            "math_element": ET.Element("MATH", {"equation": ""}),
+        }
+
+        value, error = self.exporter._scalar_export_value(item, 10)
+
+        self.assertIsNone(value)
+        self.assertIn("blank", error)
 
 
 if __name__ == "__main__":

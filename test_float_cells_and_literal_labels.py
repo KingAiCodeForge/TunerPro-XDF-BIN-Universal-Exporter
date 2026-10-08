@@ -4,7 +4,6 @@ from pathlib import Path
 import os
 import struct
 import sys
-import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -18,6 +17,11 @@ try:
     from tunerpro_exporter import UniversalXDFExporter
 finally:
     sys.platform = _platform
+
+MS42_FIXTURE_ROOT = Path(os.environ.get("KINGAI_MS42_FIXTURE_ROOT", str(REPO_ROOT / "ignore" / "ms42")))
+MS42_XDF = MS42_FIXTURE_ROOT / "xdfs" / "Siemens_MS42_0110C6_ENG_512K_v1.1.xdf"
+MS42_NATIVE = MS42_FIXTURE_ROOT / "docs" / "m52tub28 eu3 0110c6 512 xdf into txt.txt"
+
 
 def _axis(aid, count, labels=(), math="X", emb=None, embedinfo=None):
     emb = emb or 'mmedelementsizebits="8" mmedmajorstridebits="0" mmedminorstridebits="0"'
@@ -99,12 +103,11 @@ def test_float_bits_without_flag_stay_integers(tmp_path):
     assert data == [[1069547520, 1074790400, 3225419776, 1120403456]]
 
 
-def test_interleaved_table_requires_native_stride_parity(tmp_path):
+def test_float_axis_and_cells_with_64_bit_stride(tmp_path):
     exporter = _fixture(tmp_path)
     table = _by_title(exporter.elements["tables"], "interleaved curve")
     assert table["axes"]["x"]["labels"] == [10.0, 20.0, 30.0, 40.0]
-    with pytest.raises(ValueError, match="Non-default XDF table strides"):
-        exporter._read_table_data(table)
+    assert exporter._read_table_data(table) == [[0.5, 0.75, 1.0, 1.25]]
 
 
 def test_typed_labels_are_shown_verbatim(tmp_path):
@@ -122,48 +125,26 @@ def test_float_scalar_and_width_guard(tmp_path):
         exporter.read_constant(_by_title(constants, "bad float width"))
 
 
+@pytest.mark.skipif(not (MS42_XDF.exists() and MS42_NATIVE.exists()),
+                    reason="local MS42 native TunerPro export fixture not present")
 def test_native_tunerpro_export_keeps_typed_label_without_math(tmp_path):
     """TunerPro printed LABEL "0" with MATH 0.75*X-48 as 0 (not -48)."""
-    xdf_setting = os.environ.get("KINGAI_TEST_MS42_XDF")
-    native_setting = os.environ.get("KINGAI_TEST_MS42_NATIVE_EXPORT")
-    if not xdf_setting or not native_setting:
-        pytest.skip(
-            "set KINGAI_TEST_MS42_XDF and KINGAI_TEST_MS42_NATIVE_EXPORT "
-            "to run the optional native fixture comparison"
-        )
-    xdf_path = Path(xdf_setting)
-    native_path = Path(native_setting)
-    if not xdf_path.is_file() or not native_path.is_file():
-        pytest.skip("configured MS42 native comparison fixtures are unavailable")
-    native = native_path.read_text(encoding="latin-1")
-    titles = ("ip_map_ini_ast__tco", "ip_maf_tco_cor__tco")
-    for title in titles:
+    native = MS42_NATIVE.read_text(encoding="latin-1")
+    for title in ("ip_map_ini_ast__tco", "ip_maf_tco_cor__tco"):
         block = native[native.index("TABLE: " + title):].splitlines()
         assert block[3].strip() == "0"
     binary = tmp_path / "zero_512k.bin"
     binary.write_bytes(bytes(512 * 1024))
-    # This check concerns these literal-label tables only. Unrelated invalid
-    # links elsewhere in a private definition must not broaden its claim.
-    source_root = ET.parse(xdf_path).getroot()
-    scoped_root = ET.Element("XDFFORMAT", source_root.attrib)
-    header = source_root.find("XDFHEADER")
-    if header is not None:
-        scoped_root.append(header)
-    for table in source_root.findall("XDFTABLE"):
-        if table.findtext("title") in titles:
-            scoped_root.append(table)
-    scoped_path = tmp_path / "literal-labels-only.xdf"
-    ET.ElementTree(scoped_root).write(scoped_path, encoding="utf-8")
-    exporter = UniversalXDFExporter(str(scoped_path), str(binary))
+    exporter = UniversalXDFExporter(str(MS42_XDF), str(binary))
     assert exporter.validate_bin_file()
     assert exporter.parse_xdf()
-    for title in titles:
+    for title in ("ip_map_ini_ast__tco", "ip_maf_tco_cor__tco"):
         table = _by_title(exporter.elements["tables"], title)
         assert table["axes"]["x"]["labels"] == [0.0]
 
 
 def _per_cell_fixture(tmp_path):
-    """Table with global + per-row equations using linked VARs (VS $51 pattern)."""
+    """Synthetic global/per-row linked VAR fixture with explicit one-based indices."""
     data = bytearray(64)
     data[0x10] = 50        # Y source
     data[0x11] = 5         # Z source
@@ -189,8 +170,8 @@ def _per_cell_fixture(tmp_path):
         '<XDFAXIS id="z"><EMBEDDEDDATA mmedaddress="0x20" mmedelementsizebits="8" '
         'mmedrowcount="3" mmedcolcount="2" />'
         '<MATH equation="X*2"><VAR id="X" /></MATH>'
-        '<MATH row="0" equation="Y"><VAR id="Y" type="link" linkid="0x900" /></MATH>'
-        '<MATH row="1" equation="Y+Z"><VAR id="Y" type="link" linkid="0x900" />'
+        '<MATH row="1" equation="Y"><VAR id="Y" type="link" linkid="0x900" /></MATH>'
+        '<MATH row="2" equation="Y+Z"><VAR id="Y" type="link" linkid="0x900" />'
         '<VAR id="Z" type="link" linkid="0x901" /></MATH>'
         '</XDFAXIS></XDFTABLE></XDFFORMAT>', encoding="ascii")
     ex = UniversalXDFExporter(str(xdf), str(binp))
@@ -198,13 +179,28 @@ def _per_cell_fixture(tmp_path):
     return ex
 
 
+def test_explicit_scoped_math_index_base_survives_json_export(tmp_path):
+    import json
+
+    ex = _per_cell_fixture(tmp_path)
+    table = _by_title(ex.elements["tables"], "ramp")
+    table["axes"]["z"]["math_index_base"] = 1
+    output = tmp_path / "explicit-index-base.json"
+    assert ex.export_to_json(str(output))
+    result = json.loads(output.read_text(encoding="utf-8"))
+    exported_table = _by_title(result["tables"], "ramp")
+    assert exported_table["axes"]["z"]["math_index_base"] == 1
+    assert exported_table["data"][0] == [50.0, 50.0]
+
+
 def test_per_row_equations_override_global_with_precedence(tmp_path):
     ex = _per_cell_fixture(tmp_path)
     t = _by_title(ex.elements["tables"], "ramp")
+    t["axes"]["z"]["math_index_base"] = 1
     data = ex._read_table_data(t)
-    # Zero-based row 0: "Y" = 50 for both cells (cell raw ignored).
+    # row 1 attr -> data row 0: "Y" = 50 for both cells (cell raw ignored)
     assert data[0] == [50.0, 50.0]
-    # Zero-based row 1: "Y+Z" = 55 for both cells.
+    # row 2 attr -> data row 1: "Y+Z" = 55 for both cells
     assert data[1] == [55.0, 55.0]
     # data row 2: no row equation -> global "X*2" on raw cells 9,9 -> 18
     assert data[2] == [18.0, 18.0]

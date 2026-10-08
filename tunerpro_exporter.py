@@ -83,7 +83,6 @@ import json
 from datetime import datetime
 import io
 import csv
-from decimal import Decimal, InvalidOperation
 from tunerpro_xdf.xdf_addressing import file_offset, table_layout
 from tunerpro_xdf.xdf_values import FLOAT_FLAG, read_integer, read_value
 from tunerpro_xdf.xdf_equations import EquationError, evaluate_equation
@@ -150,12 +149,17 @@ def clean_output_text(value: Any) -> str:
     return text
 
 
-__version__ = "3.7.2"  # Shared XDF implementation for exporter and CLI editor.
+__version__ = "3.7.3"  # Shared XDF implementation for exporter and CLI editor.
 __author__ = "Jason King"
 __author_github__ = "KingAiCodeForge"
 __author_alias__ = "kingaustraliagg"  # PCMHacking forum username
 __email__ = "jason.king@kingai.com.au"
 __copyright__ = "Copyright (c) 2025 KingAI Pty Ltd"
+
+TUNERPRO_50010305_TEXT_BUFFER_BYTES = 0x400
+TUNERPRO_50010305_MAX_TEXT_BYTES = TUNERPRO_50010305_TEXT_BUFFER_BYTES - 1
+TUNERPRO_TEXT_NEAR_LIMIT_BYTES = 900
+TUNERPRO_NATIVE_BINARY_XDF_MAGIC = b'\x05\x22\x97\x00'
 
 # TunerPro itself does not require a power-of-two BIN. Keep this warning-only
 # inventory broad enough for common calibration windows as well as full
@@ -185,6 +189,11 @@ def is_common_binary_size(size: int) -> bool:
     return size in COMMON_BINARY_SIZES
 
 
+def is_tunerpro_native_binary_xdf(data: bytes) -> bool:
+    """Recognize the native binary/protected XDF envelope seen in TunerPro 5."""
+    return data.startswith(TUNERPRO_NATIVE_BINARY_XDF_MAGIC)
+
+
 class UniversalXDFExporter:
     """Universal XDF parser and exporter with TunerPro-style output"""
     
@@ -192,6 +201,11 @@ class UniversalXDFExporter:
     AUTHOR = __author__
     AUTHOR_GITHUB = __author_github__
     AUTHOR_ALIAS = __author_alias__
+
+    @staticmethod
+    def flag_is_set(byte_value: int, mask: int) -> bool:
+        """A multi-bit XDF flag is set only when every masked bit is present."""
+        return mask != 0 and (byte_value & mask) == mask
     
     def __init__(self, xdf_path: str, bin_path: str):
         """
@@ -243,6 +257,7 @@ class UniversalXDFExporter:
         # Validation statistics
         self.validation_warnings = []
         self.suspicious_tables = []
+        self.tunerpro_text_compatibility = []
         
         # Output options
         self.show_addresses = False  # Show hex addresses in output
@@ -352,6 +367,23 @@ class UniversalXDFExporter:
         if not self.xdf_path.exists():
             self.logger.error(f"XDF file not found: {self.xdf_path}")
             return False
+
+        try:
+            raw = self.xdf_path.read_bytes()
+        except OSError as exc:
+            self.logger.error("Failed to read XDF: %s", exc)
+            return False
+
+        if is_tunerpro_native_binary_xdf(raw):
+            self.logger.error(
+                "Unsupported TunerPro native binary/protected XDF container "
+                "(magic 05 22 97 00): %s. Native TunerPro can load this file, "
+                "but this XML/text parser cannot. Use TunerPro's supported Bin "
+                "Data Export or obtain an author-approved XML definition; no "
+                "password or decryption bypass is attempted.",
+                self.xdf_path.name,
+            )
+            return False
         
         try:
             tree = ET.parse(self.xdf_path)
@@ -360,7 +392,6 @@ class UniversalXDFExporter:
             # BUG FIX #13: Handle non-UTF-8 XDF files (e.g. German XDFs with
             # Latin-1 encoded characters like ° 0xB0, ü 0xFC, etc.)
             # Re-read as Latin-1, encode to UTF-8, then parse from string
-            raw = self.xdf_path.read_bytes()
             try:
                 text = raw.decode('utf-8-sig')
             except UnicodeDecodeError:
@@ -398,15 +429,23 @@ class UniversalXDFExporter:
                     )
                     return False
 
+        self._audit_tunerpro_native_text_compatibility()
+        
+        # Extract header information
+        self._extract_header()
+        
+        # Extract categories
+        self._extract_categories()
+        
+        # Build uniqueid index for embedinfo axis linking (MS42/MS43 XDFs)
+        self._build_uniqueid_index()
+        
         # Extract all elements (universal approach). During extraction, defer a
         # dangling VAR link (a defect in some community XDFs) so one bad element
         # does not abort the whole file; the strict read-time path still reports
         # it per element.
         self._lenient_links = True
         try:
-            self._extract_header()
-            self._extract_categories()
-            self._build_uniqueid_index()
             self._extract_constants()
             self._extract_flags()
             self._extract_tables()
@@ -446,18 +485,13 @@ class UniversalXDFExporter:
     @classmethod
     def _legacy_int(cls, raw_value: str, default: int = 0) -> int:
         value = cls._legacy_text_value(raw_value)
-        if not value.strip():
-            return default
         try:
             return int(value, 0)
-        except ValueError:
+        except (TypeError, ValueError):
             try:
-                number = Decimal(value)
-            except InvalidOperation as exc:
-                raise ValueError(f'Invalid legacy XDF integer: {raw_value!r}') from exc
-            if not number.is_finite() or number != number.to_integral_value():
-                raise ValueError(f'Invalid legacy XDF integer: {raw_value!r}')
-            return int(number)
+                return int(float(value))
+            except (TypeError, ValueError):
+                return default
 
     @classmethod
     def _legacy_equation(cls, raw_value: str) -> str:
@@ -636,10 +670,8 @@ class UniversalXDFExporter:
                     'mmedelementsizebits': str(z_size),
                     'mmedrowcount': str(rows),
                     'mmedcolcount': str(cols),
-                    # Legacy contiguous tables need default storage strides;
-                    # row width is not TunerPro's major-stride definition.
-                    'mmedmajorstridebits': '0',
-                    'mmedminorstridebits': '0',
+                    'mmedmajorstridebits': str(cols * z_size),
+                    'mmedminorstridebits': str(z_size),
                 }
                 if fields.get('Address'):
                     z_attributes['mmedaddress'] = cls._legacy_text_value(
@@ -695,6 +727,102 @@ class UniversalXDFExporter:
 
         return root
 
+    def _audit_tunerpro_native_text_compatibility(self) -> None:
+        """Warn about XML values that current native TunerPro cannot safely hold.
+
+        Local reverse engineering of TunerPro RT 5.00.10305 XDFEditor.dll found
+        0x400-byte value buffers in the XDF header/table parse and table/axis
+        serialization paths. ElementTree accepts longer values, so a Python
+        export can succeed even when native TunerPro cannot load the XDF.
+
+        UTF-8 byte length is intentionally conservative for non-ASCII text.
+        This audit never changes the XDF and never blocks export.
+        """
+        self.tunerpro_text_compatibility = []
+        if self.xdf_root is None:
+            return
+
+        parent_by_child = {
+            child: parent
+            for parent in self.xdf_root.iter()
+            for child in list(parent)
+        }
+
+        for element in self.xdf_root.iter():
+            text = element.text or ""
+            if not text.strip():
+                continue
+            byte_count = len(text.encode("utf-8"))
+            if byte_count <= TUNERPRO_TEXT_NEAR_LIMIT_BYTES:
+                continue
+
+            parent = parent_by_child.get(element)
+            parent_tag = parent.tag.split("}")[-1] if parent is not None else ""
+            context = ""
+            if parent is not None:
+                context = (
+                    parent.findtext("title")
+                    or parent.findtext("deftitle")
+                    or parent.get("uniqueid")
+                    or ""
+                ).strip()
+
+            self.tunerpro_text_compatibility.append(
+                {
+                    "tag": element.tag.split("}")[-1],
+                    "parent_tag": parent_tag,
+                    "context": context,
+                    "bytes_utf8": byte_count,
+                    "severity": (
+                        "over_native_limit"
+                        if byte_count > TUNERPRO_50010305_MAX_TEXT_BYTES
+                        else "near_native_limit"
+                    ),
+                }
+            )
+
+        over_limit = [
+            issue
+            for issue in self.tunerpro_text_compatibility
+            if issue["severity"] == "over_native_limit"
+        ]
+        near_limit = [
+            issue
+            for issue in self.tunerpro_text_compatibility
+            if issue["severity"] == "near_native_limit"
+        ]
+
+        if over_limit:
+            message = (
+                "TunerPro native text limit exceeded: "
+                f"{len(over_limit)} XML value(s) are longer than "
+                f"{TUNERPRO_50010305_MAX_TEXT_BYTES} UTF-8 bytes. "
+                "Python export can succeed while TunerPro RT 5.00.10305 "
+                "may fail to load this XDF."
+            )
+            self.validation_warnings.append(message)
+            self.logger.warning(message)
+            for issue in sorted(
+                over_limit, key=lambda item: item["bytes_utf8"], reverse=True
+            )[:5]:
+                label = issue["context"] or issue["parent_tag"] or "(root)"
+                self.logger.warning(
+                    "  %s/%s %r: %d bytes",
+                    issue["parent_tag"],
+                    issue["tag"],
+                    label,
+                    issue["bytes_utf8"],
+                )
+
+        if near_limit:
+            self.logger.info(
+                "TunerPro text compatibility margin: %d XML value(s) are "
+                "between %d and %d UTF-8 bytes.",
+                len(near_limit),
+                TUNERPRO_TEXT_NEAR_LIMIT_BYTES + 1,
+                TUNERPRO_50010305_MAX_TEXT_BYTES,
+            )
+    
     def _extract_header(self):
         """Extract definition name and BASEOFFSET from XDF header"""
         header = self.xdf_root.find('.//XDFHEADER')
@@ -710,10 +838,17 @@ class UniversalXDFExporter:
             # Format 1: <BASEOFFSET offset="294912" subtract="0" />
             baseoffset = header.find('.//BASEOFFSET')
             if baseoffset is not None:
-                self.base_offset = self._metadata_integer(baseoffset, 'offset', 0)
-                self.base_subtract = self._metadata_integer(baseoffset, 'subtract', 0)
-                if self.base_subtract not in (0, 1):
-                    raise ValueError('BASEOFFSET subtract must be 0 or 1')
+                offset_str = baseoffset.get('offset', '0')
+                try:
+                    self.base_offset = int(offset_str, 16) if offset_str.startswith('0x') else int(offset_str)
+                except ValueError:
+                    self.base_offset = 0
+                
+                subtract_str = baseoffset.get('subtract', '0')
+                try:
+                    self.base_subtract = int(subtract_str)
+                except ValueError:
+                    self.base_subtract = 0
                     
                 if self.base_offset != 0:
                     self.logger.info(f"BASEOFFSET detected: offset={self.base_offset} (0x{self.base_offset:X}), subtract={self.base_subtract}")
@@ -722,10 +857,13 @@ class UniversalXDFExporter:
             if self.base_offset == 0:
                 baseoffset_simple = header.find('.//baseoffset')
                 if baseoffset_simple is not None and baseoffset_simple.text:
-                    offset_text = baseoffset_simple.text.strip()
-                    self.base_offset = self._metadata_number(offset_text, 'baseoffset')
-                    if self.base_offset != 0:
-                        self.logger.info(f"BASEOFFSET (simple format) detected: offset={self.base_offset} (0x{self.base_offset:X})")
+                    try:
+                        offset_text = baseoffset_simple.text.strip()
+                        self.base_offset = int(offset_text, 16) if offset_text.startswith('0x') else int(offset_text)
+                        if self.base_offset != 0:
+                            self.logger.info(f"BASEOFFSET (simple format) detected: offset={self.base_offset} (0x{self.base_offset:X})")
+                    except ValueError:
+                        pass
     
     def _extract_categories(self):
         """Extract categories and detect this XDF's membership-ID convention."""
@@ -768,14 +906,6 @@ class UniversalXDFExporter:
                 f"({one_based_matches} resolved vs {direct_matches} direct)"
             )
     
-    @staticmethod
-    def _is_unassigned_uniqueid(uid):
-        """Zero IDs are unassigned placeholders, never usable link targets."""
-        try:
-            return int(uid, 16 if uid.strip().lower().startswith('0x') else 10) == 0
-        except ValueError:
-            return False
-
     def _build_uniqueid_index(self):
         """
         Build index of all elements by uniqueid for embedinfo axis linking.
@@ -786,21 +916,16 @@ class UniversalXDFExporter:
         
         This index allows O(1) lookup of linked elements.
         """
-        self.uniqueid_index = {}
         # Index all XDFTABLE elements
         for table in self.xdf_root.findall('.//XDFTABLE'):
             uid = table.get('uniqueid')
-            if uid and not self._is_unassigned_uniqueid(uid):
-                if uid in self.uniqueid_index:
-                    raise ValueError(f"Duplicate XDF uniqueid {uid!r}; linked values are ambiguous")
+            if uid:
                 self.uniqueid_index[uid] = table
         
         # Index all XDFCONSTANT elements (scalars can be axis sources too)
         for const in self.xdf_root.findall('.//XDFCONSTANT'):
             uid = const.get('uniqueid')
-            if uid and not self._is_unassigned_uniqueid(uid):
-                if uid in self.uniqueid_index:
-                    raise ValueError(f"Duplicate XDF uniqueid {uid!r}; linked values are ambiguous")
+            if uid:
                 self.uniqueid_index[uid] = const
         
         if self.uniqueid_index:
@@ -855,8 +980,11 @@ class UniversalXDFExporter:
                 # A fixed absolute BIN address, not a link to another XDF
                 # object -- e.g. <VAR id="Y" type="address" address="0x6003" />
                 # used to test a config-byte bit: "if ((Y>>7)&0x01) > 0 ...".
-                # Address variables default to a single unsigned byte; an
-                # explicit sizeinbits/signed override is honored when supplied.
+                # Confirmed on the OSE $11P V104 corpus (2026-09-11): every
+                # instance omits a size attribute, so TunerPro's own default
+                # (a single unsigned byte) is what this reads; honour an
+                # explicit sizeinbits/signed override if one is ever present,
+                # never invent a width beyond the documented default.
                 addr_str = var.get('address', '')
                 try:
                     addr = int(addr_str, 16) if addr_str.lower().startswith('0x') \
@@ -901,7 +1029,7 @@ class UniversalXDFExporter:
             return []
         uid = info.get('linkobjid', '')
         if not uid:
-            raise EquationError('Embedded-axis link has no source object ID')
+            return []
         target = self.uniqueid_index.get(uid)
         if target is None:
             raise EquationError(f"Missing embedded-axis source {uid!r}")
@@ -932,8 +1060,6 @@ class UniversalXDFExporter:
             else:
                 raise EquationError(f"Unsupported embedded-axis source type {target.tag}")
             count = int(axis_elem.findtext('indexcount', str(len(values))))
-            if count < 1:
-                raise EquationError('Embedded-axis count must be positive')
             if count > len(values):
                 raise EquationError(f"Embedded-axis source {uid!r} has {len(values)} values; {count} required")
             return values
@@ -975,8 +1101,11 @@ class UniversalXDFExporter:
         embedded = element.find('.//EMBEDDEDDATA')
         if embedded is not None:
             addr = embedded.get('mmedaddress')
-            if addr is not None:
-                return self._metadata_number(addr, 'mmedaddress')
+            if addr:
+                try:
+                    return int(addr, 16) if addr.startswith('0x') else int(addr)
+                except ValueError:
+                    pass
             
             # Check for mmedtypeflags format
             if embedded.get('mmedtypeflags'):
@@ -989,30 +1118,24 @@ class UniversalXDFExporter:
         
         # Method 2: Direct address attribute
         addr = element.get('address')
-        if addr is not None:
-            return self._metadata_number(addr, 'address')
+        if addr:
+            try:
+                return int(addr, 16) if addr.startswith('0x') else int(addr)
+            except ValueError:
+                pass
         
         # Method 3: mem/memory child element
         for tag in ['mem', 'memory', 'addr']:
             mem = element.find(f'.//{tag}')
             if mem is not None and mem.text:
-                return self._metadata_number(mem.text, tag)
+                try:
+                    addr = mem.text.strip()
+                    return int(addr, 16) if addr.startswith('0x') else int(addr)
+                except ValueError:
+                    pass
         
         return None
     
-    @staticmethod
-    def _metadata_number(value: str, field: str) -> int:
-        try:
-            text = value.strip()
-            return int(text, 16) if text.lower().startswith(('0x', '-0x', '+0x')) else int(text)
-        except (ValueError, AttributeError) as exc:
-            raise ValueError(f"Invalid XDF {field}: {value!r}") from exc
-
-    @classmethod
-    def _metadata_integer(cls, element, field: str, default: int) -> int:
-        value = element.get(field)
-        return default if value is None else cls._metadata_number(value, field)
-
     def _parse_embedded_data(self, element) -> Dict:
         """
         Parse EMBEDDEDDATA attributes for address, size, signedness, and endianness
@@ -1048,34 +1171,64 @@ class UniversalXDFExporter:
         result['storage_attributes'] = dict(embedded.attrib)
         
         # Address
-        addr_str = embedded.get('mmedaddress')
-        if addr_str is not None:
-            result['address'] = self._metadata_number(addr_str, 'mmedaddress')
-        elif element.tag == 'XDFCONSTANT' and element.find('EMBEDDEDDATA') is embedded:
-            # A constant with explicit storage defaults an omitted address to
-            # zero. Constants without storage remain section headings.
-            result['address'] = 0
+        addr_str = embedded.get('mmedaddress', '')
+        if addr_str:
+            try:
+                result['address'] = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
+            except ValueError:
+                pass
         
         # Size in bits
-        result['size_bits'] = self._metadata_integer(embedded, 'mmedelementsizebits', 8)
+        size_str = embedded.get('mmedelementsizebits', '')
+        if size_str:
+            try:
+                result['size_bits'] = int(size_str)
+            except ValueError:
+                pass
         
         # Type flags (signedness and endianness)
         # TunerPro XDF spec: Bit 0 = Signed, Bit 1 = LSB first (little-endian)
         # 0x00 = Unsigned MSB, 0x01 = Signed MSB, 0x02 = Unsigned LSB, 0x03 = Signed + LSB
-        flags = self._metadata_integer(embedded, 'mmedtypeflags', 0)
-        result['type_flags'] = flags
-        result['signed'] = bool(flags & 0x01)
-        result['lsb_first'] = bool(flags & 0x02)
-        result['is_float'] = bool(flags & FLOAT_FLAG)
+        flags_str = embedded.get('mmedtypeflags', '0x00')
+        try:
+            flags = int(flags_str, 16) if flags_str.startswith('0x') else int(flags_str)
+            result['type_flags'] = flags
+            result['signed'] = bool(flags & 0x01)      # Bit 0 = Signed
+            result['lsb_first'] = bool(flags & 0x02)   # Bit 1 = LSB first (little-endian)
+            result['is_float'] = bool(flags & FLOAT_FLAG)  # 0x10000 = IEEE754 cell
+        except ValueError:
+            pass
         
         # Row/column counts for tables
-        result['row_count'] = self._metadata_integer(embedded, 'mmedrowcount', 1)
-        result['col_count'] = self._metadata_integer(embedded, 'mmedcolcount', 1)
+        row_str = embedded.get('mmedrowcount', '')
+        if row_str:
+            try:
+                result['row_count'] = int(row_str)
+            except ValueError:
+                pass
+        
+        col_str = embedded.get('mmedcolcount', '')
+        if col_str:
+            try:
+                result['col_count'] = int(col_str)
+            except ValueError:
+                pass
         
         # Strides for non-contiguous data
         # BUG FIX #6: Support NEGATIVE strides (BMW backwards addressing)
-        result['major_stride'] = self._metadata_integer(embedded, 'mmedmajorstridebits', 0)
-        result['minor_stride'] = self._metadata_integer(embedded, 'mmedminorstridebits', 0)
+        major_str = embedded.get('mmedmajorstridebits', '')
+        if major_str:
+            try:
+                result['major_stride'] = int(major_str)  # Can be negative!
+            except ValueError:
+                pass
+        
+        minor_str = embedded.get('mmedminorstridebits', '')
+        if minor_str:
+            try:
+                result['minor_stride'] = int(minor_str)
+            except ValueError:
+                pass
         
         return result
     
@@ -1249,7 +1402,7 @@ class UniversalXDFExporter:
         for flag in self.xdf_root.findall('.//XDFFLAG'):
             address = self._get_address(flag)
             if address is None:
-                raise ValueError(f"Flag {self._get_title(flag)!r} has no BIN address")
+                continue
             
             title = self._get_title(flag)
             category = self._get_category_name(flag)
@@ -1258,9 +1411,11 @@ class UniversalXDFExporter:
             mask_elem = flag.find('.//mask')
             mask = 0x01  # Default mask
             if mask_elem is not None and mask_elem.text:
-                mask = self._metadata_number(mask_elem.text, 'flag mask')
-            if not 0 < mask <= 0xFF:
-                raise ValueError('XDF flag mask must fit a nonzero unsigned byte')
+                try:
+                    mask_str = mask_elem.text.strip()
+                    mask = int(mask_str, 16) if mask_str.startswith('0x') else int(mask_str)
+                except ValueError:
+                    pass
             
             self.elements['flags'].append({
                 'title': title,
@@ -1316,8 +1471,12 @@ class UniversalXDFExporter:
 
         # Method 3: Direct LABEL extraction (VY V6/legacy XDFs)
         #
-        # Typed ("External (Manual)") labels remain literal display values;
-        # their axis MATH is not applied to the displayed label.
+        # TunerPro shows typed ("External (Manual)") labels verbatim; the axis
+        # MATH is NOT applied to them. Native proof: three retained TunerPro
+        # Bin Data Exports of the MS42 0110C6 v1.1 XDF print the x label of
+        # ip_map_ini_ast__tco and ip_maf_tco_cor__tco (LABEL "0", MATH
+        # "0.75*X-48") as 0, not -48 (1bmw_ms42_tuning_guides/docs/
+        # "m52tub28 eu3 0110c6 512 xdf into txt.txt" and two others).
         math_elem = axis_elem.find('.//MATH')
         equation = math_elem.get('equation', '') if math_elem is not None else ''
         linked_vars = (
@@ -1370,41 +1529,63 @@ class UniversalXDFExporter:
         """
         if axis_elem.get('id') == 'z':
             return []
-        if axis_elem.find('.//EMBEDDEDDATA') is None:
-            raise ValueError('Required embedded axis has no EMBEDDEDDATA storage')
-        storage = self._parse_embedded_data(axis_elem)
-        self._require_integer_storage(storage)
-        address = storage['address']
-        if address is None:
-            # Explicit embedded storage defaults an omitted address to zero.
-            # BASEOFFSET still applies; malformed explicit values are rejected
-            # by _parse_embedded_data, and every resulting read stays bounded.
-            address = 0
+        self._require_integer_storage(self._parse_embedded_data(axis_elem))
+
+        embedded = axis_elem.find('.//EMBEDDEDDATA')
+        if embedded is None:
+            return []
+
+        addr_str = embedded.get('mmedaddress', '')
+        if not addr_str:
+            return []
+        try:
+            address = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
+        except ValueError:
+            return []
 
         count_elem = axis_elem.find('.//indexcount')
         if count_elem is None or not count_elem.text:
-            raise ValueError('Required embedded axis has no indexcount')
-        count = self._metadata_number(count_elem.text, 'embedded axis indexcount')
+            return []
+        try:
+            count = int(count_elem.text.strip())
+        except ValueError:
+            return []
         if count <= 0 or count > 4096:
-            raise ValueError('Required embedded axis indexcount must be between 1 and 4096')
+            return []
 
-        size_bits = storage['size_bits']
-        supported_widths = (32, 64) if storage['is_float'] else (8, 16, 32)
-        if size_bits not in supported_widths:
-            raise ValueError(f'Unsupported embedded axis element width: {size_bits}')
-        byte_size = size_bits // 8
+        try:
+            size_bits = int(embedded.get('mmedelementsizebits', '8'))
+        except ValueError:
+            size_bits = 8
+        byte_size = max(1, size_bits // 8)
 
-        major_stride_bits = storage['major_stride']
-        if major_stride_bits % 8:
-            raise ValueError('Embedded axis major stride must be byte-aligned')
-        if storage['minor_stride'] not in (0, size_bits):
-            raise ValueError('Unsupported embedded axis minor stride')
+        try:
+            major_stride_bits = int(embedded.get('mmedmajorstridebits', '0'))
+        except ValueError:
+            major_stride_bits = 0
+        if major_stride_bits and major_stride_bits % 8:
+            raise ValueError(
+                "Embedded axis has a non-byte-aligned major stride: "
+                f"{major_stride_bits} bits at 0x{address:X}"
+            )
         # TunerPro permits an axis stride smaller than the element width. MS42
         # uses this for overlapping 16-bit breakpoints with an 8-bit stride.
         # Clamping to byte_size silently skipped every second breakpoint.
         byte_stride = (
             major_stride_bits // 8 if major_stride_bits else byte_size
         )
+
+        signed = False
+        lsb_first = False
+        is_float = False
+        flags_str = embedded.get('mmedtypeflags', '0x00')
+        try:
+            flags = int(flags_str, 16) if flags_str.startswith('0x') else int(flags_str)
+            signed = bool(flags & 0x01)
+            lsb_first = bool(flags & 0x02)
+            is_float = bool(flags & FLOAT_FLAG)
+        except ValueError:
+            pass
 
         math_elem = axis_elem.find('.//MATH')
         equation = math_elem.get('equation', '') if math_elem is not None else ''
@@ -1415,12 +1596,12 @@ class UniversalXDFExporter:
             raw = self.read_value_from_bin(
                 address + (index * byte_stride),
                 size_bits,
-                signed=storage['signed'],
-                lsb_first=storage['lsb_first'],
-                is_float=storage['is_float']
+                signed=signed,
+                lsb_first=lsb_first,
+                is_float=is_float
             )
             if raw is None:
-                raise ValueError(f'Required embedded axis cell {index} cannot be read from BIN')
+                return []
             if equation:
                 value, _ = self.evaluate_math(
                     equation,
@@ -1496,13 +1677,7 @@ class UniversalXDFExporter:
                         pass
                 
                 # Extract axis labels with processing
-                try:
-                    axis_labels = self._extract_axis_labels(axis)
-                except ValueError as exc:
-                    raise ValueError(
-                        f"Table {title!r} (uniqueid={table.get('uniqueid')!r}), "
-                        f"axis {axis_id!r}: {exc}"
-                    ) from exc
+                axis_labels = self._extract_axis_labels(axis)
                 display_labels = [
                     label.get('value', '')
                     for label in axis.findall('.//LABEL')
@@ -1543,8 +1718,6 @@ class UniversalXDFExporter:
                     'axes': axes,
                     'decimalpl': decimalpl
                 })
-            else:
-                raise ValueError(f"Table {title!r} has no Z-axis BIN address")
     
     def _extract_patches(self):
         """
@@ -1576,31 +1749,25 @@ class UniversalXDFExporter:
             entries = []
             for entry in patch.findall('.//XDFPATCHENTRY'):
                 entry_name = entry.get('name', 'Unknown')
+                addr_str = entry.get('address', '0')
+                size_str = entry.get('datasize', '0')
+                patch_data = entry.get('patchdata', '')
+                base_data = entry.get('basedata', '')
+                
                 try:
-                    address = self._metadata_number(entry.get('address'), 'patch address')
-                    datasize = self._metadata_number(entry.get('datasize'), 'patch datasize')
-                    if address < 0 or datasize <= 0:
-                        raise ValueError('Patch address must be nonnegative and datasize positive')
-                    payloads = {}
-                    for field in ('patchdata', 'basedata'):
-                        value = entry.get(field)
-                        if value is None:
-                            payloads[field] = ''
-                            continue
-                        data = bytes.fromhex(value)
-                        if len(data) != datasize:
-                            raise ValueError(f'{field} byte count does not match datasize {datasize}')
-                        payloads[field] = data.hex().upper()
-                    if not any(payloads.values()):
-                        raise ValueError('Patch entry has no patchdata or basedata')
+                    # Parse address and size
+                    address = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
+                    datasize = int(size_str, 16) if size_str.startswith('0x') else int(size_str)
+                    
                     entries.append({
                         'name': entry_name,
                         'address': address,
                         'datasize': datasize,
-                        **payloads,
+                        'patchdata': patch_data.upper(),
+                        'basedata': base_data.upper()
                     })
-                except ValueError as exc:
-                    raise ValueError(f'Patch {title!r}, entry {entry_name!r}: {exc}') from exc
+                except ValueError:
+                    continue
             
             if entries:
                 # Check if patch is applied
@@ -1642,7 +1809,7 @@ class UniversalXDFExporter:
             
             # Validate offset
             if file_offset < 0 or file_offset + datasize > self.bin_size:
-                return 'unknown'
+                continue
             
             # Read actual bytes from BIN
             actual_bytes = self.bin_data[file_offset:file_offset + datasize]
@@ -1653,8 +1820,6 @@ class UniversalXDFExporter:
                 applied_count += 1
             elif base_data and actual_hex == base_data:
                 base_count += 1
-            else:
-                return 'unknown'
         
         # Determine status
         if applied_count == total:
@@ -1663,6 +1828,10 @@ class UniversalXDFExporter:
             return 'not_applied'
         elif applied_count > 0 and base_count > 0:
             return 'partial'
+        elif applied_count > 0:
+            return 'applied'
+        elif base_count > 0:
+            return 'not_applied'
         else:
             return 'unknown'
 
@@ -1683,7 +1852,8 @@ class UniversalXDFExporter:
 
         This does not decide the definition is "correct" -- it reports where the
         XDF, applied to THIS bin, produces something impossible (out-of-bounds,
-        span overrun) or non-credible (all-zero / single-value multi-cell table).
+        span overrun). Zero or uniform values are review observations only;
+        byte patterns cannot establish feature absence or write history.
         A clean report means "not refuted", never "proven".
         """
         bs = self.bin_size
@@ -1760,43 +1930,45 @@ class UniversalXDFExporter:
             cell_count = len(flat)
             uniq = len(set(flat))
             if set(flat) == {0}:
-                # An all-zero table is only evidence of a WRONG ADDRESS when it
-                # sits inside live calibration. A zero table that is part of a
-                # contiguous zero region is the ordinary signature of a feature
-                # the vehicle does not have -- the bank is simply unpopulated,
-                # and the definition may describe it correctly. An all-zero
-                # table inside a contiguous zero region is reported separately.
+                # Zero values and nearby byte patterns are contextual review
+                # observations, not proof of an incorrect address, an absent
+                # feature, or write history. Keep the historical bucket names
+                # for report compatibility without treating them as evidence.
                 #
-                # A conversion can map nonzero stored bytes to zero-valued
-                # calibration. Check the raw bytes before classifying decoded
-                # zeros as possible padding; decoded zero alone is insufficient.
+                # An equation may map nonzero storage bytes to zero. Compare
+                # raw patterns for context, but do not infer write history or
+                # a correct ECU mapping from either raw or decoded zeros.
                 if not self._raw_block_is_unwritten(addr, span):
                     note('all_zero_written_bytes', title,
                          f'{cell_count} cells decode to 0 @0x{addr:X}, but the '
-                         f'raw bytes are written data (not padding)')
+                         f'raw bytes are not all-zero or all-FF; write history unknown')
                 elif self._zero_table_is_isolated(addr, span):
                     note('all_zero_isolated', title,
                          f'{cell_count} cells, all zero @0x{addr:X}, '
-                         f'unwritten and surrounded by live data')
+                         f'padding-like bytes between nonzero neighborhoods; review only')
                 else:
                     note('all_zero_in_zero_region', title,
                          f'{cell_count} cells, all zero @0x{addr:X}, '
-                         f'inside a contiguous zero region (feature likely absent)')
+                         f'zero-region context or insufficient neighbors; feature status unknown')
             elif uniq == 1 and cell_count > 4:
                 note('degenerate_uniform', title,
                      f'{cell_count} cells all == {flat[0]} @0x{addr:X}')
 
-        # Only impossible geometry and zero tables stranded in live calibration
-        # refute a definition. Uniform-value tables and unpopulated feature
-        # banks are reported for review but are frequently correct.
+        # Only impossible geometry is a concrete refutation. Zero/uniform
+        # calibration is legitimate even between non-zero neighbouring bytes.
+        # Content patterns are review observations, not proof of a wrong address.
         refuted = sum(len(findings[k]) for k in
-                      ('address_out_of_bounds', 'span_overruns_bin',
-                       'all_zero_isolated'))
+                      ('address_out_of_bounds', 'span_overruns_bin'))
         report = {
-            'xdf': str(self.xdf_path), 'bin': str(self.bin_path),
+            # Reports may be shared as regression evidence. Preserve the source
+            # identity without leaking a workstation-specific directory.
+            'xdf': self.xdf_path.name, 'bin': self.bin_path.name,
             'bin_size': bs, 'definition': self.definition_name,
             'elements_graded': graded,
             'refuted_count': refuted,
+            'content_review_count': sum(len(findings[k]) for k in
+                ('all_zero_isolated', 'all_zero_in_zero_region',
+                 'all_zero_written_bytes', 'degenerate_uniform')),
             'decode_error_count': len(findings['decode_error']),
             'validation_complete': not findings['decode_error'] and not findings['address_missing'],
             'refuted_pct': round(100 * refuted / graded, 1) if graded else 0.0,
@@ -1807,18 +1979,19 @@ class UniversalXDFExporter:
                       'B_minor' if refuted <= graded * 0.10 else
                       'C_significant' if refuted <= graded * 0.30 else
                       'D_poor_fit'),
-            'caveat': 'A clean grade means NOT REFUTED for this bin. It is not '
-                      'proof the XDF is correct; only a controlled edit proves a '
-                      'physical mapping.',
+            'caveat': 'A clean grade means NOT REFUTED for this bin, not a proven XDF. '
+                      'Zero/uniform patterns are review observations. Native comparisons '
+                      'and controlled edits are still needed; no grade certifies ECU '
+                      'identity, checksums or flash readiness.',
         }
         return report
 
     def _raw_block_is_unwritten(self, addr: int, span: int) -> bool:
-        """Are the RAW bytes at addr unwritten padding (all 0x00 or all 0xFF)?
+        """Check for uniform raw 0x00 or 0xFF patterns, not write history.
 
-        This must be asked of the raw bytes, never of the decoded value. A
-        storage byte that the equation maps to 0.0 is real calibration; only an
-        unwritten block is evidence that a definition points at nothing.
+        The historical helper name is retained for compatibility. A match is
+        a padding-like observation, not proof of unwritten storage, feature
+        absence, or an incorrect definition address.
 
         Fail-closed: with no bytes to inspect it returns False, so an absent
         image cannot refute a definition.
@@ -1849,7 +2022,7 @@ class UniversalXDFExporter:
             return False
         before = self.bin_data[max(0, addr - window):addr]
         after = self.bin_data[addr + span:addr + span + window]
-        if not before and not after:
+        if not before or not after:
             return False
         sides = []
         for chunk in (before, after):
@@ -1868,7 +2041,7 @@ class UniversalXDFExporter:
             return None
         axes = table.get('axes', {})
         z = axes.get('z', {})
-        pick_equation = self._cell_equation_selector(z, layout.rows, layout.cols)
+        pick_equation = self._cell_equation_selector(z)
         axis_values = {}
         for name in ('x', 'y'):
             axis = axes.get(name, {})
@@ -1970,15 +2143,20 @@ class UniversalXDFExporter:
             return self._resolve_linked_vars(item['math_element'])
         return item.get('linked_vars', {})
 
-    def _cell_equation_selector(self, z: Dict, rows=None, cols=None):
+    def _cell_equation_selector(self, z: Dict):
         """Build a per-cell (equation, linked_vars) resolver for a Z axis.
 
         TunerPro V5 tables may carry per-row, per-column and per-cell conversion
         equations via multiple <MATH> children with row=/col= attributes, each
         with its own linked VARs. Precedence is cell > row > column > global
-        (TunerPro help: XDF Table Editor, Conversion tab). Row/col attributes are
-        zero-based, as documented by TunerPro RT 5.00.10305's XDF Table Editor
-        help. Sparse scopes keep their declared indices; no base is inferred.
+        in this parser. Row/col selectors follow its zero-based contract; the
+        smallest selector is not evidence for an alternative index base.
+        Callers may explicitly set z['math_index_base'] to 1 for a known
+        one-based input. This is a model interpretation option, not native
+        XDF format evidence; the default remains zero-based.
+        Tables with only a single global
+        <MATH> resolve to exactly the previous behaviour, so this is a no-op for
+        them.
         """
         xml = z.get('xml_element')
         global_eq = z.get('equation', '')
@@ -1986,20 +2164,29 @@ class UniversalXDFExporter:
             global_lv = self.linked_vars_for(z)
             return lambda r, c: (global_eq, global_lv)
         maths = xml.findall('MATH')
-        if not maths:
-            return lambda r, c: ('', {})
+        if not maths or (len(maths) == 1 and not any(k in maths[0].attrib for k in ('row', 'col'))):
+            global_lv = self.linked_vars_for(z)
+            return lambda r, c: (global_eq, global_lv)
+
+        index_base = z.get('math_index_base', 0)
+        if type(index_base) is not int or index_base not in (0, 1):
+            raise ValueError("Scoped MATH index base must be integer 0 or 1")
 
         def _idx(v):
             if v is None:
                 return None
-            value = self._metadata_number(v, 'MATH row/col index')
+            try:
+                value = int(v, 0)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Invalid scoped MATH index: {v!r}") from exc
             if value < 0:
-                raise EquationError('MATH row/col index must be nonnegative')
+                raise ValueError(f"Negative scoped MATH index: {v!r}")
+            if value < index_base:
+                raise ValueError(f"Scoped MATH index {v!r} is below index base {index_base}")
             return value
 
         cell, rowm, colm = {}, {}, {}
-        g_eq, g_lv = '', {}
-        scopes_seen = set()
+        g_eq, g_lv = None, {}
         cache = {}
 
         def _lv(elem):
@@ -2011,22 +2198,22 @@ class UniversalXDFExporter:
         for m in maths:
             r, c = _idx(m.get('row')), _idx(m.get('col'))
             eq = m.get('equation', '')
-            if ((r is not None and rows is not None and r >= rows)
-                    or (c is not None and cols is not None and c >= cols)):
-                raise EquationError('MATH row/col index exceeds table dimensions')
-            if (r, c) in scopes_seen:
-                raise EquationError(f'Duplicate MATH scope row={r}, col={c}')
-            scopes_seen.add((r, c))
             if r is not None and c is not None:
+                if (r, c) in cell:
+                    raise ValueError("Duplicate scoped cell MATH selector")
                 cell[(r, c)] = (eq, m)
             elif r is not None:
+                if r in rowm:
+                    raise ValueError("Duplicate scoped row MATH selector")
                 rowm[r] = (eq, m)
             elif c is not None:
+                if c in colm:
+                    raise ValueError("Duplicate scoped column MATH selector")
                 colm[c] = (eq, m)
             else:
                 g_eq, g_lv = eq, _lv(m)
         def pick(r, c):
-            ra, ca = r, c
+            ra, ca = r + index_base, c + index_base
             if (ra, ca) in cell:
                 eq, m = cell[(ra, ca)]
                 return eq, _lv(m)
@@ -2036,6 +2223,8 @@ class UniversalXDFExporter:
             if ca in colm:
                 eq, m = colm[ca]
                 return eq, _lv(m)
+            if g_eq is None:
+                raise ValueError("No global MATH for an uncovered scoped table cell")
             return g_eq, g_lv
 
         return pick
@@ -2044,9 +2233,12 @@ class UniversalXDFExporter:
     def _require_integer_storage(item):
         flags = item.get('type_flags', 0)
         # Bits: 0x01 signed, 0x02 LSB-first, 0x10000 float (all handled at read).
-        # Additional flags need controlled native parity; plausible numerical
-        # output alone cannot establish their storage semantics.
-        if flags & ~(0x03 | FLOAT_FLAG):
+        # 0x04 is a decode-no-op here: measured 2026-09-24 on the VS $51 Enhanced
+        # v1.4f XDF, all 92 tables carrying 0x04 read correctly as row-major (mean
+        # neighbour roughness 0.05-0.10 row-major vs 0.13-0.21 column-major), so
+        # it does NOT signal column-major and changes no value. Allow 0x04..0x07;
+        # still refuse genuinely unknown higher bits rather than misdecode.
+        if flags & ~(0x07 | FLOAT_FLAG):
             raise ValueError("Unsupported XDF storage flags; integer decoding is not established")
         if flags & FLOAT_FLAG and item.get('size', item.get('size_bits')) not in (32, 64):
             raise ValueError("XDF float cells must be 32 or 64 bits wide")
@@ -2064,6 +2256,8 @@ class UniversalXDFExporter:
 
     def _scalar_export_value(self, item, raw_value):
         """Return a decoded scalar or an explicit per-item conversion error."""
+        if item.get('math_element') is not None and not item.get('equation'):
+            return None, "XDF MATH equation is blank; engineering value is undefined"
         if not item.get('equation'):
             return raw_value, None
         try:
@@ -2088,17 +2282,6 @@ class UniversalXDFExporter:
             if self._read_table_data(item) is None:
                 raise ValueError(f"Table {item.get('title')!r} cannot be read")
 
-    def _validate_output_paths(self, *output_paths):
-        """Refuse to overwrite either input, including links and path aliases."""
-        inputs = (self.xdf_path, self.bin_path)
-        for output in map(Path, output_paths):
-            resolved = output.resolve()
-            for source in inputs:
-                if resolved == source.resolve() or (
-                    output.exists() and source.exists() and output.samefile(source)
-                ):
-                    raise ValueError(f"Output path would overwrite an input file: {output}")
-
     def table_context(self, table, row, col):
         context = {'row_index': row, 'col_index': col}
         for name, index, key in (('x', col, 'x_axis_value'), ('y', row, 'y_axis_value')):
@@ -2120,7 +2303,6 @@ class UniversalXDFExporter:
             bool: True if successful
         """
         try:
-            self._validate_output_paths(output_path)
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
@@ -2197,7 +2379,7 @@ class UniversalXDFExporter:
                             continue
                         
                         # Check if flag is set
-                        is_set = (byte_value & flag['mask']) != 0
+                        is_set = self.flag_is_set(byte_value, flag['mask'])
                         status = "Set" if is_set else "Not Set"
                         
                         # Write in TunerPro format: simple Set/Not Set
@@ -2463,7 +2645,6 @@ class UniversalXDFExporter:
             bool: True if successful
         """
         try:
-            self._validate_output_paths(output_path)
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             export_data = {
@@ -2536,7 +2717,7 @@ class UniversalXDFExporter:
                 if byte_value is None:
                     continue
                 
-                is_set = (byte_value & flag['mask']) != 0
+                is_set = self.flag_is_set(byte_value, flag['mask'])
                 
                 export_data['flags'].append({
                     'title': flag['title'],
@@ -2575,6 +2756,8 @@ class UniversalXDFExporter:
                         'minor_stride': axis.get('minor_stride', 0),
                         'decimalpl': axis.get('decimalpl', 2)
                     }
+                if axis_id == 'z':
+                    table_entry['axes'][axis_id]['math_index_base'] = axis.get('math_index_base', 0)
                 
                 # Get decimalpl from Z-axis for proper rounding
                 z_axis = table.get('axes', {}).get('z', {})
@@ -2674,7 +2857,6 @@ class UniversalXDFExporter:
             bool: True if successful
         """
         try:
-            self._validate_output_paths(output_path)
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, 'w', encoding='utf-8') as f:
@@ -2750,7 +2932,7 @@ class UniversalXDFExporter:
                     if byte_value is None:
                         continue
                     
-                    is_set = (byte_value & flag['mask']) != 0
+                    is_set = self.flag_is_set(byte_value, flag['mask'])
                     status = "✅ Set" if is_set else "❌ Not Set"
                     cat = flag['category'] or 'Uncategorized'
                     title = flag['title'].replace('|', '\\|')
@@ -2905,7 +3087,6 @@ class UniversalXDFExporter:
         """
         import csv
         try:
-            self._validate_output_paths(output_path)
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             with open(output_path, 'w', newline='',
@@ -2927,20 +3108,13 @@ class UniversalXDFExporter:
                     )
                     if raw is None:
                         continue
-                    value = raw
-                    if const['equation']:
-                        cv, _ = self.evaluate_math(
-                            const['equation'], raw,
-                            linked_vars=const.get(
-                                'linked_vars', {}
-                            )
-                        )
-                        if cv is not None:
-                            value = cv
+                    value, conversion_error = self._scalar_export_value(const, raw)
                     dp = const.get('decimalpl', 2)
-                    val_str = self._format_value(
-                        value, dp) if isinstance(
-                            value, float) else str(value)
+                    val_str = (
+                        f"ERROR: {conversion_error}"
+                        if conversion_error else
+                        self._format_value(value, dp) if isinstance(value, float) else str(value)
+                    )
                     addr = f"0x{const['address']:04X}"
                     writer.writerow([
                         'Scalar', const['category'],
@@ -2955,7 +3129,7 @@ class UniversalXDFExporter:
                         flag['address'], 8)
                     if bv is None:
                         continue
-                    is_set = (bv & flag['mask']) != 0
+                    is_set = self.flag_is_set(bv, flag['mask'])
                     addr = f"0x{flag['address']:04X}"
                     writer.writerow([
                         'Flag', flag['category'],
@@ -3036,8 +3210,6 @@ class UniversalXDFExporter:
             bool: True if successful
         """
         try:
-            self._validate_output_paths(output_path)
-            self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             zero_scalars = []
             zero_tables = []
@@ -3167,17 +3339,9 @@ class UniversalXDFExporter:
 
 def main():
     """Command-line interface with multi-format support"""
-    help_requested = any(arg in ('-h', '--help') for arg in sys.argv[1:])
-    known_options = {'--addresses', '--flip-rpm', '--flip-load', '--no-stats',
-                     '--no-zerosexport', '--diagnostics', '--help', '-h'}
-    unknown_options = [arg for arg in sys.argv[1:]
-                       if arg.startswith('-') and arg not in known_options]
-    if unknown_options and not help_requested:
-        print(f"ERROR: Unknown option(s): {', '.join(unknown_options)}")
-        sys.exit(1)
     # Filter out option flags for argument count check
-    positional_args = [a for a in sys.argv[1:] if a not in known_options]
-    if help_requested or len(positional_args) < 3 or len(positional_args) > 4:
+    positional_args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if len(positional_args) < 3 or len(positional_args) > 4:
         print("=" * 70)
         print("  KingAI TunerPro XDF + BIN Universal Exporter")
         print("=" * 70)
@@ -3221,7 +3385,7 @@ def main():
         safe_print("  ✅ Auto-format detection from file extension")
         safe_print("  ✅ Zero-value report (_zeros.md) generated by default")
         print()
-        sys.exit(0 if help_requested else 1)
+        sys.exit(1)
     
     xdf_file = positional_args[0]
     bin_file = positional_args[1]
@@ -3263,24 +3427,6 @@ def main():
     exporter.flip_load = flip_load
     exporter.no_stats = no_stats
     exporter.zeros_export = zeros_export
-
-    # Validate the entire output plan before writing its first file. In all
-    # mode a later format, zeros report, or diagnostic sidecar can alias input.
-    output_path = Path(output_base)
-    if '--diagnostics' in sys.argv:
-        planned_outputs = [output_path.with_name(f'{output_path.stem}_diagnostics.json')]
-    else:
-        planned_outputs = (
-            [output_path.with_suffix(f'.{fmt}') for fmt in ('txt', 'json', 'md', 'csv')]
-            if export_format == 'all' else [output_path]
-        )
-        if zeros_export:
-            planned_outputs.append(output_path.with_name(f'{output_path.stem}_zeros.md'))
-    try:
-        exporter._validate_output_paths(*planned_outputs)
-    except (ValueError, OSError) as exc:
-        print(f'ERROR: {exc}')
-        sys.exit(1)
     
     # Validate and parse
     if not exporter.validate_bin_file():

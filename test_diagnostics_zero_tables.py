@@ -1,4 +1,4 @@
-"""An all-zero table only refutes a definition when it sits in live calibration.
+"""Zero tables are contextual review observations, never address refutations.
 
 A zero table inside a contiguous zero region is the ordinary signature of a
 feature the vehicle does not have; the definition is describing an unpopulated
@@ -6,8 +6,10 @@ bank correctly. Grading every all-zero table as refuting downgrades correct
 XDFs -- on the E38 12609099 code-confirmed set it flagged 30 tables of which 24
 were unpopulated banks, taking the refuted rate from 1.4% to 6.8%.
 """
+
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,13 +33,13 @@ TABLE_CELLS = 16  # 4x4 uint8
 def _build_bin(path: Path) -> None:
     data = bytearray([LIVE_BYTE] * BIN_SIZE)
     # a table of zeros with live calibration either side
-    data[ISOLATED_ADDR:ISOLATED_ADDR + TABLE_CELLS] = bytes(TABLE_CELLS)
+    data[ISOLATED_ADDR : ISOLATED_ADDR + TABLE_CELLS] = bytes(TABLE_CELLS)
     # a wide unpopulated bank containing a table of zeros
-    data[REGION_ADDR - 0x80:REGION_ADDR + TABLE_CELLS + 0x80] = bytes(
+    data[REGION_ADDR - 0x80 : REGION_ADDR + TABLE_CELLS + 0x80] = bytes(
         0x100 + TABLE_CELLS
     )
     # written calibration that happens to DECODE to zero, in live surroundings
-    data[DECODES_ZERO_ADDR:DECODES_ZERO_ADDR + TABLE_CELLS] = bytes(
+    data[DECODES_ZERO_ADDR : DECODES_ZERO_ADDR + TABLE_CELLS] = bytes(
         [DECODES_ZERO_BYTE] * TABLE_CELLS
     )
     path.write_bytes(bytes(data))
@@ -60,12 +62,19 @@ def _build_xdf(path: Path) -> None:
     path.write_text(
         "<?xml version='1.0' encoding='utf-8'?>\n<XDFFORMAT version=\"1.70\">\n"
         "  <XDFHEADER>\n    <deftitle>zero table diagnostics fixture</deftitle>\n"
-        "    <baseoffset offset=\"0\" subtract=\"0\" />\n"
+        '    <baseoffset offset="0" subtract="0" />\n'
         "  </XDFHEADER>\n"
-        + _table(0x1, "stranded in live data", ISOLATED_ADDR) + "\n"
-        + _table(0x2, "inside a zero region", REGION_ADDR) + "\n"
-        + _table(0x3, "written bytes that decode to zero", DECODES_ZERO_ADDR,
-                 equation=f"X-{DECODES_ZERO_BYTE}") + "\n"
+        + _table(0x1, "stranded in live data", ISOLATED_ADDR)
+        + "\n"
+        + _table(0x2, "inside a zero region", REGION_ADDR)
+        + "\n"
+        + _table(
+            0x3,
+            "written bytes that decode to zero",
+            DECODES_ZERO_ADDR,
+            equation=f"X-{DECODES_ZERO_BYTE}",
+        )
+        + "\n"
         "</XDFFORMAT>\n",
         encoding="utf-8",
     )
@@ -92,47 +101,57 @@ class ZeroTableDiagnosticsTests(unittest.TestCase):
         self.assertEqual(counts["all_zero_isolated"], 1)
         self.assertEqual(counts["all_zero_in_zero_region"], 1)
 
-    def test_only_the_stranded_table_counts_as_refuting(self) -> None:
-        self.assertEqual(self.report["refuted_count"], 1)
+    def test_report_uses_portable_source_names(self) -> None:
+        self.assertEqual(self.report["xdf"], self.xdf_path.name)
+        self.assertEqual(self.report["bin"], self.bin_path.name)
+        serialized = json.dumps(self.report)
+        self.assertNotIn(str(self.xdf_path.parent), serialized)
+
+    def test_stranded_zero_table_is_review_only(self) -> None:
+        self.assertEqual(self.report["refuted_count"], 0)
+        self.assertEqual(self.report["content_review_count"], 3)
         titles = [f["title"] for f in self.report["findings"]["all_zero_isolated"]]
         self.assertEqual(titles, ["stranded in live data"])
 
-    def test_unpopulated_bank_is_reported_but_does_not_refute(self) -> None:
+    def test_zero_region_is_reported_without_claiming_feature_absence(self) -> None:
         region = self.report["findings"]["all_zero_in_zero_region"]
         self.assertEqual([f["title"] for f in region], ["inside a zero region"])
-        self.assertIn("feature likely absent", region[0]["detail"])
+        self.assertIn("feature status unknown", region[0]["detail"])
 
     def test_written_bytes_that_decode_to_zero_do_not_refute(self) -> None:
-        """A decoded zero is a value; only unwritten bytes are a gap.
+        """Synthetic encoded zeros are values, not evidence of write history.
 
-        MS45 4560BN00 has two of these: the IVVT ignition offset tables at
-        0x4AAA4 and 0x4ABE4 hold 320 bytes of 0x5F, which the equation maps to
-        0 degrees. Testing the decoded value for zero and then asking the RAW
-        neighbours whether it is stranded refuted both, taking a correct
-        definition from A_clean to B_minor.
+        The X-95 equation maps 0x5F to zero. Neither that decoded value nor
+        the neighboring bytes can prove an ECU feature or address mapping.
         """
         counts = self.report["counts"]
         self.assertEqual(counts["all_zero_written_bytes"], 1)
         written = self.report["findings"]["all_zero_written_bytes"]
-        self.assertEqual([f["title"] for f in written],
-                         ["written bytes that decode to zero"])
-        self.assertIn("raw bytes are written data", written[0]["detail"])
+        self.assertEqual(
+            [f["title"] for f in written], ["written bytes that decode to zero"]
+        )
+        self.assertIn("raw bytes are not all-zero", written[0]["detail"])
+        self.assertIn("write history unknown", written[0]["detail"])
         # it sits in live calibration, so the OLD logic would have refuted it
         self.assertTrue(
             self.exporter._zero_table_is_isolated(DECODES_ZERO_ADDR, TABLE_CELLS)
         )
         # but the raw bytes say it was written, so it must not count as refuting
-        self.assertEqual(self.report["refuted_count"], 1)
+        self.assertEqual(self.report["refuted_count"], 0)
 
     def test_raw_block_is_unwritten_only_for_padding(self) -> None:
         unwritten = self.exporter._raw_block_is_unwritten
-        self.assertTrue(unwritten(ISOLATED_ADDR, TABLE_CELLS))       # all 0x00
+        self.assertTrue(unwritten(ISOLATED_ADDR, TABLE_CELLS))  # all 0x00
         self.assertFalse(unwritten(DECODES_ZERO_ADDR, TABLE_CELLS))  # all 0x5F
-        self.assertFalse(unwritten(0, 0))                            # fail-closed
+        self.assertFalse(unwritten(0, 0))  # fail-closed
 
     def test_missing_neighbour_bytes_do_not_refute(self) -> None:
         """With nothing to compare against, report nothing rather than refute."""
         self.assertFalse(self.exporter._zero_table_is_isolated(0, BIN_SIZE))
+
+    def test_single_available_neighbour_is_not_two_sided_evidence(self) -> None:
+        self.assertFalse(self.exporter._zero_table_is_isolated(0, TABLE_CELLS))
+        self.assertFalse(self.exporter._zero_table_is_isolated(BIN_SIZE - TABLE_CELLS, TABLE_CELLS))
 
 
 if __name__ == "__main__":
