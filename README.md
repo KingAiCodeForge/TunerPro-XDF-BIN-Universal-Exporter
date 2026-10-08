@@ -764,3 +764,19 @@ Commercial use requires written permission from the author.
 ---
 
 *Made with ❤️ in Australia*
+
+## Portable parser update: 2026-10-08 (3.7.3)
+
+This update improves portable parsing and review outputs; it does not certify an ECU definition or a flash-ready BIN.
+
+- Scoped table MATH uses zero-based row/column selectors by default. The smallest observed selector is never used to guess an index base.
+- For an independently known one-based source, callers may explicitly set `table["axes"]["z"]["math_index_base"] = 1` after parsing. This is a model/API option, not a claimed native XDF attribute. JSON exports record the selected base. Invalid scoped bases and selectors below the declared base fail closed.
+- Scoped precedence remains cell, row, column, global. An uncovered cell without global MATH is an error, not an invented equation.
+- Positive byte-aligned noncontiguous strides support mechanical read-only review. They do not establish native TunerPro parity; noncontiguous writes remain gated. Negative and non-byte-aligned table strides are rejected.
+- Zero-filled or uniform tables are contextual review observations, not address refutations or proof of missing features or write history. Historical diagnostic bucket names remain for compatibility. Bounds/span failures remain errors.
+- Diagnostic neighborhood classification requires both neighbors. No bytes to inspect do not establish a bad mapping.
+- Portable BMW container handling and regression fixtures are included. Native binary-XDF input remains unsupported and fails closed.
+
+Focused validation uses synthetic parser/storage/report cases. Optional native/local fixtures may skip when absent; neither passing synthetic tests nor skipped native tests proves addresses, axes, conversion equations, OSID identity, checksums, or flash safety. No vehicle BINs, private captures, vendor binaries, or decrypted databases are included.
+
+Validation receipt: 65 focused exporter tests passed, 4 optional fixtures skipped, and 6 subtests passed. The editor's 98 focused tests passed against both its existing pinned exporter and this revised source. Skipped native fixtures remain missing evidence, not successful validation.

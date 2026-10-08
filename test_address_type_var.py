@@ -1,9 +1,22 @@
-"""Synthetic regressions for VAR type="address" resolution.
+"""VAR type="address" resolution -- a fixed absolute BIN address, not a link
+to another XDF object.
 
-The fixture reads an unsigned configuration byte from a fixed BIN address
-and uses it in a conditional equation. It checks that the variable reads its
-own address independently of the scalar being converted and rejects reads
-outside the BIN. No external XDF or firmware files are required.
+Found broken 2026-09-11 while grading the OSE-encrypted GM corpus decrypted
+that day: `_resolve_linked_vars` raised on any VAR whose type was not 'link',
+so any file using this legitimate TunerPro feature failed to parse entirely
+(not just the affected entry -- the whole export). Confirmed pattern on the
+real corpus, every instance the same shape and always an implicit 8-bit
+unsigned read:
+
+    <VAR id="Y" type="address" address="0x6003" />
+
+used in a config-byte bit test:
+
+    if ( ((Y>>7)&0x01) > 0 ; (1.22 * X) + 2.2 ; (0.781 * X) + 8 )
+
+`OSE $11P V104.xdf` (converted from the encrypted source that day) went from
+a hard parse failure to 615 constants / 332 flags / 192 tables / 0 refuted
+once this was fixed.
 """
 from __future__ import annotations
 

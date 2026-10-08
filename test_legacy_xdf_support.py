@@ -8,6 +8,9 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parent
+BIN_DEFINITIONS_BMW = Path(
+    os.environ.get("KINGAI_BMW_DEFINITION_ROOT", str(REPO_ROOT / "ignore" / "BMW"))
+)
 sys.path.insert(0, str(REPO_ROOT))
 
 # Importing the CLI module normally wraps Windows console streams. Pytest owns
@@ -119,16 +122,10 @@ def test_legacy_text_xdf_normalizes_into_existing_export_model(tmp_path):
 
 
 def test_real_ms41_legacy_and_xml_fixtures_have_stable_counts(tmp_path):
-    definitions_setting = os.environ.get("KINGAI_TEST_MS41_DEFINITIONS")
-    if not definitions_setting:
-        pytest.skip(
-            "set KINGAI_TEST_MS41_DEFINITIONS to run the optional MS41 fixture comparison"
-        )
-    definitions_root = Path(definitions_setting)
-    legacy = definitions_root / "MS41_version641.xdf"
-    xml = definitions_root / "MS41-2.xdf"
-    if not legacy.is_file() or not xml.is_file():
-        pytest.skip("configured MS41 comparison fixtures are unavailable")
+    legacy = BIN_DEFINITIONS_BMW / "MS41_version641.xdf"
+    xml = BIN_DEFINITIONS_BMW / "MS41-2.xdf"
+    if not legacy.exists() or not xml.exists():
+        pytest.skip("local Bin Definitions MS41 fixtures are unavailable")
 
     legacy_bin = tmp_path / "legacy.bin"
     xml_bin = tmp_path / "xml.bin"
