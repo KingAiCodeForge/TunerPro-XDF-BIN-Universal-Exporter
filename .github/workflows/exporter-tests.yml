@@ -29,8 +29,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $wheel = Get-Item dist/kingai_tunerpro_xdf-3.7.2-*.whl
-          python -m pip install --no-index $wheel.FullName
+          $wheels = @(Get-ChildItem -Path dist -Filter 'kingai_tunerpro_xdf-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw "Expected one built wheel; found $($wheels.Count)" }
+          python -m pip install --no-index $wheels[0].FullName
           exit $LASTEXITCODE
       - name: Test installed package away from source
         shell: pwsh
