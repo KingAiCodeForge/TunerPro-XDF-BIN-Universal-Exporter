@@ -149,7 +149,7 @@ def clean_output_text(value: Any) -> str:
     return text
 
 
-__version__ = "3.7.3"  # Shared XDF implementation for exporter and CLI editor.
+__version__ = "3.7.4"  # Shared XDF implementation for exporter and CLI editor.
 __author__ = "Jason King"
 __author_github__ = "KingAiCodeForge"
 __author_alias__ = "kingaustraliagg"  # PCMHacking forum username
