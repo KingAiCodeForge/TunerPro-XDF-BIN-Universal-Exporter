@@ -901,6 +901,11 @@ class UniversalXDFExporter:
                 )
             except ValueError:
                 continue
+            # Native TunerPro CATEGORYMEM 0 means no category. Repeated
+            # uncategorized objects must not vote for a direct-ID mapping.
+            # Legacy direct files using zero remain supported on ties.
+            if member_id == 0:
+                continue
             direct_matches += member_id in self.categories
             one_based_matches += (member_id - 1) in self.categories
 
@@ -1288,6 +1293,8 @@ class UniversalXDFExporter:
             if cat_idx:
                 try:
                     idx = int(cat_idx, 16) if cat_idx.lower().startswith('0x') else int(cat_idx)
+                    if idx == 0 and self.category_member_offset == -1:
+                        return 'Uncategorized'
                     idx += self.category_member_offset
                     return self.categories.get(idx, 'Unknown')
                 except ValueError:
