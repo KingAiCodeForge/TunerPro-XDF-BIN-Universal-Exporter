@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from tunerpro_xdf.xdf_equations import EquationError, evaluate_equation, inverse_affine
+from tunerpro_xdf.xdf_equations import EquationError, evaluate_equation, inverse_affine, inverse_reciprocal
 from tunerpro_xdf import xdf_equations
 
 
@@ -226,3 +226,36 @@ def test_source_never_executes_equation_code():
     tree = ast.parse(source.read_text(encoding="utf-8"))
     calls = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
     assert not calls.intersection({"eval", "exec", "compile", "__import__"})
+
+
+@pytest.mark.parametrize("equation, raw, variables", [
+    ("5.1/X", 11, {}),
+    ("12.8/X", 256, {}),
+    ("51/X", 17, {}),
+    ("65535/X", 39323, {}),
+    ("(0*X-65536)/(0-(100*X))", 65534, {}),
+    ("A/(B*X)", 37, {"A": 51, "B": 2}),
+])
+def test_reciprocal_inverse_exact_roundtrip(equation, raw, variables):
+    real = evaluate_equation(equation, {**variables, "X": raw})
+    assert inverse_reciprocal(equation, real, variables) == raw
+
+
+@pytest.mark.parametrize("equation, real, variables, message", [
+    ("5.1/(X+1)", 1.0, {}, "zero intercept"),
+    ("X/(2*X)", 1.0, {}, "numerator must be constant"),
+    ("5.1/(2*X+1)", 1.0, {}, "zero intercept"),
+    ("X+1", 1.0, {}, "reciprocal division"),
+    ("0/X", 1.0, {}, "numerator must be nonzero"),
+    ("5.1/X", 0.0, {}, "engineering zero"),
+    ("5.1/(A*X)", 1.0, {"A": 0}, "coefficient of X must be nonzero"),
+])
+def test_reciprocal_inverse_rejects_unproven_forms(equation, real, variables, message):
+    with pytest.raises(EquationError, match=message):
+        inverse_reciprocal(equation, real, variables)
+
+
+def test_reciprocal_inverse_does_not_change_affine_contract():
+    with pytest.raises(EquationError):
+        inverse_affine("5.1/X", 0.51, {})
+    assert inverse_reciprocal("5.1/X", 0.51, {}) == 10
