@@ -647,6 +647,15 @@ def compare_table(
     return best
 
 
+def _normalized_display_unit(value: object) -> str:
+    """Compare native/exporter labels without inventing unit conversions.
+
+    Case and redundant whitespace are presentation-only differences; an absent
+    unit and a nonempty unit are NOT assumed equivalent.
+    """
+    return " ".join(str(value or "").split()).casefold()
+
+
 def compare_exports(
     native: dict[str, Any],
     exported: dict[str, Any],
@@ -677,18 +686,26 @@ def compare_exports(
             float(actual.get("value")),
             absolute_tolerance,
         )
+        native_unit = str(expected.get("unit") or "")
+        exporter_unit = str(actual.get("unit") or "")
+        unit_match = (
+            _normalized_display_unit(native_unit)
+            == _normalized_display_unit(exporter_unit)
+        )
         scalar_results.append(
             {
                 "type": "scalar",
                 "title": key[0],
                 "occurrence": key[1],
-                "status": "MATCH" if matched else "MISMATCH",
+                "status": "MATCH" if matched and unit_match else "MISMATCH",
+                "numeric_match": matched,
+                "unit_match": unit_match,
                 "native_value": expected["value"].value,
                 "exporter_value": actual.get("value"),
                 "delta": delta,
                 "tolerance": tolerance,
-                "native_unit": expected["unit"],
-                "exporter_unit": str(actual.get("unit") or ""),
+                "native_unit": native_unit,
+                "exporter_unit": exporter_unit,
             }
         )
 
@@ -699,16 +716,26 @@ def compare_exports(
             exported_tables[key],
             absolute_tolerance,
         )
+        native_unit = native_tables[key].unit
+        exporter_unit = str(
+            (((exported_tables[key].get("axes") or {}).get("z") or {}).get("unit"))
+            or ""
+        )
+        unit_match = (
+            _normalized_display_unit(native_unit)
+            == _normalized_display_unit(exporter_unit)
+        )
+        if not unit_match:
+            result["status"] = "MISMATCH"
+            result["mismatches"] += 1
         result.update(
             {
                 "type": "table",
+                "unit_match": unit_match,
                 "title": key[0],
                 "occurrence": key[1],
-                "native_unit": native_tables[key].unit,
-                "exporter_unit": str(
-                    (((exported_tables[key].get("axes") or {}).get("z") or {}).get("unit"))
-                    or ""
-                ),
+                "native_unit": native_unit,
+                "exporter_unit": exporter_unit,
             }
         )
         table_results.append(result)
@@ -724,7 +751,10 @@ def compare_exports(
         item["status"] != "MATCH" for item in table_results
     )
     parse_errors = list(native.get("parse_errors") or [])
-    passed = not any(
+    compared_objects = len(scalar_results) + len(table_results)
+    scalar_unit_mismatches = sum(not item["unit_match"] for item in scalar_results)
+    table_unit_mismatches = sum(not item["unit_match"] for item in table_results)
+    has_failure = any(
         (
             parse_errors,
             missing_scalars,
@@ -735,6 +765,10 @@ def compare_exports(
             table_mismatches,
         )
     )
+    # A matching pair of empty/unrecognized exports must never validate an XDF.
+    status = "FAIL" if has_failure else (
+        "INCONCLUSIVE" if compared_objects == 0 else "PASS"
+    )
 
     return {
         "schema": "kingai.tunerpro-native-display-parity.v1",
@@ -743,7 +777,7 @@ def compare_exports(
             "Displayed scalar/table/axis values only. This does not prove raw "
             "addresses, checksums, patches, or unsupported equation semantics."
         ),
-        "status": "PASS" if passed else "FAIL",
+        "status": status,
         "native_metadata": native.get("metadata") or {},
         "exporter_metadata": exported.get("metadata") or {},
         "summary": {
@@ -752,12 +786,15 @@ def compare_exports(
             "exporter_scalars": len(exported_scalars),
             "common_scalars": len(scalar_results),
             "scalar_mismatches": scalar_mismatches,
+            "scalar_unit_mismatches": scalar_unit_mismatches,
             "missing_scalars": len(missing_scalars),
             "extra_scalars": len(extra_scalars),
             "native_tables": len(native_tables),
             "exporter_tables": len(exported_tables),
             "common_tables": len(table_results),
             "table_mismatches": table_mismatches,
+            "table_unit_mismatches": table_unit_mismatches,
+            "compared_objects": compared_objects,
             "missing_tables": len(missing_tables),
             "extra_tables": len(extra_tables),
         },
@@ -803,6 +840,7 @@ def write_csv(path: Path, report: dict[str, Any]) -> None:
                 "delta",
                 "native_unit",
                 "exporter_unit",
+                "unit_match",
             ),
         )
         writer.writeheader()
@@ -865,7 +903,9 @@ def main() -> int:
         f"{summary['common_tables']}/{summary['native_tables']} tables; "
         f"{summary['scalar_mismatches']} scalar and "
         f"{summary['table_mismatches']} table mismatch(es); "
-        f"{summary['native_parse_errors']} native parse error(s)."
+        f"{summary['native_parse_errors']} native parse error(s); "
+        f"{summary['scalar_unit_mismatches'] + summary['table_unit_mismatches']} "
+        f"unit mismatch(es)."
     )
     if args.out:
         print(f"JSON: {args.out.resolve()}")
