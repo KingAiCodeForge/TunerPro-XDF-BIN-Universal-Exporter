@@ -96,3 +96,16 @@ def test_direct_mapping_with_zero_remains_backward_compatible():
     assert exporter.category_member_offset == 0
     assert exporter._get_category_name(items[0]) == "C0"
     assert exporter._get_category_name(items[1]) == "C1"
+
+
+def test_malformed_memberships_never_name_a_real_category():
+    exporter, items = _category_layout([0, 1], ["garbage", "1.5", "0xGG", "", 1, 2])
+    assert exporter.category_member_offset == -1
+    assert [exporter._get_category_name(item) for item in items[:4]] == ["Uncategorized"] * 4
+    assert [exporter._get_category_name(item) for item in items[-2:]] == ["C0", "C1"]
+
+
+def test_malformed_category_index_is_ignored():
+    exporter, items = _category_layout(["bad", 0], [1])
+    assert exporter.categories == {0: "C0"}
+    assert exporter._get_category_name(items[0]) == "C0"

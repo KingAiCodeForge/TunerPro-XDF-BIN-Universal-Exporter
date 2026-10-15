@@ -85,7 +85,9 @@ def test_duplicate_unique_ids_cannot_select_last_object(tmp_path):
 
 
 def test_sparse_single_row_equation_stays_on_second_row(tmp_path):
-    exporter = fixture(tmp_path, table('<MATH row="1" equation="X*10"/>'))
+    # Uncovered cells require an explicit global conversion. The independent
+    # scoped-math tests reject guessing one from a lone scoped equation.
+    exporter = fixture(tmp_path, table('<MATH equation="X"/><MATH row="1" equation="X*10"/>'))
     assert exporter.parse_xdf()
     assert exporter._read_table_data(exporter.elements['tables'][0]) == [[11, 22], [330, 440]]
 

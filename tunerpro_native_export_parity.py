@@ -600,6 +600,9 @@ def compare_table(
     exported: dict[str, Any],
     absolute_tolerance: float,
 ) -> dict[str, Any]:
+    if not native.data or not any(native.data):
+        return {'status': 'MISMATCH', 'orientation': None, 'mismatches': 1,
+                'reason': 'native table has no data cells to compare'}
     candidates: list[dict[str, Any]] = []
     for candidate in oriented_candidates(exported):
         x_result = compare_number_series(
@@ -661,6 +664,19 @@ def compare_exports(
     exported: dict[str, Any],
     absolute_tolerance: float,
 ) -> dict[str, Any]:
+    if not math.isfinite(absolute_tolerance) or absolute_tolerance < 0:
+        raise ValueError("Absolute tolerance must be finite and nonnegative")
+    for kind in ("scalars", "tables"):
+        items = exported.get(kind, [])
+        if items is None:
+            continue
+        if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+            raise ValueError(f"Exporter {kind} must be a list of objects")
+    for item in exported.get("scalars") or []:
+        try:
+            float(item.get("value"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Exporter scalar {item.get('title', '')!r} has no numeric value") from exc
     native_scalars = {
         (item["title"], item["occurrence"]): item
         for item in native["scalars"]
@@ -778,6 +794,7 @@ def compare_exports(
             "addresses, checksums, patches, or unsupported equation semantics."
         ),
         "status": status,
+        "validation_errors": ([] if compared_objects else ['No scalar or table objects were compared']),
         "native_metadata": native.get("metadata") or {},
         "exporter_metadata": exported.get("metadata") or {},
         "summary": {
@@ -821,8 +838,9 @@ def compare_exports(
 
 
 def write_csv(path: Path, report: dict[str, Any]) -> None:
+    from tunerpro_xdf.output_safety import open_new_output
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
+    with open_new_output(path, encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
             fieldnames=(
@@ -872,29 +890,34 @@ def write_csv(path: Path, report: dict[str, Any]) -> None:
 
 def main() -> int:
     args = parse_args()
+    from tunerpro_xdf.output_safety import assert_safe_output_plan, open_new_output
+    csv_path = args.csv
+    if csv_path is None and args.out is not None:
+        csv_path = args.out.with_suffix('.csv')
     try:
+        outputs = [p for p in (args.out, csv_path) if p is not None]
+        if outputs:
+            assert_safe_output_plan(outputs, [args.tunerpro_export, args.exporter_json])
         native = parse_native_export(args.tunerpro_export)
         exported = load_exporter_json(args.exporter_json)
         report = compare_exports(
             native,
             exported,
-            max(0.0, args.absolute_tolerance),
+            args.absolute_tolerance,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-    csv_path = args.csv
-    if csv_path is None and args.out is not None:
-        csv_path = args.out.with_suffix(".csv")
-    if csv_path is not None:
-        write_csv(csv_path, report)
+    try:
+        if args.out:
+            with open_new_output(args.out, [args.tunerpro_export, args.exporter_json], encoding='utf-8') as handle:
+                handle.write(json.dumps(report, indent=2, ensure_ascii=False) + '\n')
+        if csv_path is not None:
+            write_csv(csv_path, report)
+    except (OSError, ValueError) as exc:
+        print(f'ERROR: {exc}', file=sys.stderr)
+        return 2
 
     summary = report["summary"]
     print(

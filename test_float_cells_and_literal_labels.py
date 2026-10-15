@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import struct
 import sys
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -135,7 +136,18 @@ def test_native_tunerpro_export_keeps_typed_label_without_math(tmp_path):
         assert block[3].strip() == "0"
     binary = tmp_path / "zero_512k.bin"
     binary.write_bytes(bytes(512 * 1024))
-    exporter = UniversalXDFExporter(str(MS42_XDF), str(binary))
+    # This test covers saved display labels, not unrelated unresolved links in
+    # the full legacy definition. Keep the two source objects unchanged.
+    source = ET.parse(MS42_XDF).getroot()
+    focused = ET.Element("XDFFORMAT", source.attrib)
+    focused.append(source.find("XDFHEADER"))
+    for table in source.findall("XDFTABLE"):
+        if table.findtext("title") in ("ip_map_ini_ast__tco", "ip_maf_tco_cor__tco"):
+            focused.append(table)
+    assert len(focused.findall("XDFTABLE")) == 2
+    definition = tmp_path / "literal_labels_only.xdf"
+    ET.ElementTree(focused).write(definition, encoding="utf-8", xml_declaration=True)
+    exporter = UniversalXDFExporter(str(definition), str(binary))
     assert exporter.validate_bin_file()
     assert exporter.parse_xdf()
     for title in ("ip_map_ini_ast__tco", "ip_maf_tco_cor__tco"):

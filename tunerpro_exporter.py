@@ -86,7 +86,7 @@ import csv
 from tunerpro_xdf.xdf_addressing import file_offset, table_layout
 from tunerpro_xdf.xdf_values import FLOAT_FLAG, read_integer, read_value
 from tunerpro_xdf.xdf_equations import EquationError, evaluate_equation
-from tunerpro_xdf.output_safety import assert_safe_output_plan
+from tunerpro_xdf.output_safety import assert_safe_output_plan, open_new_output
 
 # Fix Windows console encoding for UTF-8 characters.
 # Only rewrap a real interactive console. Importing this module must not replace
@@ -150,7 +150,7 @@ def clean_output_text(value: Any) -> str:
     return text
 
 
-__version__ = "3.7.3"  # Shared XDF implementation for exporter and CLI editor.
+__version__ = "3.7.3+reconcile.20261015"  # Local integration review, not a published release.
 __author__ = "Jason King"
 __author_github__ = "KingAiCodeForge"
 __author_alias__ = "kingaustraliagg"  # PCMHacking forum username
@@ -259,6 +259,7 @@ class UniversalXDFExporter:
         self.validation_warnings = []
         self.suspicious_tables = []
         self.tunerpro_text_compatibility = []
+        self.omitted_definitions = []
         
         # Output options
         self.show_addresses = False  # Show hex addresses in output
@@ -266,6 +267,95 @@ class UniversalXDFExporter:
         self.flip_load = False       # Flip X-axis (load: high→low)
         self.no_stats = False        # Omit statistics from output
         self.zeros_export = True     # Export zeros report (default ON)
+
+    @staticmethod
+    def _axis_coordinate_evidence(axis_elem, native_labels):
+        """Separate numeric coordinates from native zero-rendered text labels."""
+        embedinfo = axis_elem.find('.//embedinfo')
+        link_type = embedinfo.get('type') if embedinfo is not None else None
+        source = {'1': 'embedded', '3': 'linked'}.get(link_type, 'literal')
+        literals = [e.get('value', '') for e in axis_elem.findall('.//LABEL')]
+        values, issues = [], []
+        for index, native_value in enumerate(native_labels):
+            text = literals[index] if index < len(literals) else ''
+            reason = None
+            if source == 'literal':
+                try:
+                    value = float(text)
+                except (TypeError, ValueError):
+                    value = None
+                    reason = 'text_label' if text.strip() else 'missing_numeric_label'
+            else:
+                value = native_value
+            if value is not None and not math.isfinite(value):
+                value = None
+                reason = 'nonfinite_coordinate'
+            values.append(value)
+            if reason:
+                issues.append({'index': index, 'display_label': text, 'reason': reason})
+        return {
+            'coordinate_source': source,
+            'coordinate_values': values,
+            'coordinate_issues': issues,
+            'numeric_coordinates_complete': bool(values) and not issues,
+        }
+
+
+    @staticmethod
+    def _flip_coordinate_evidence(axis):
+        if 'coordinate_values' not in axis:
+            return
+        count = len(axis['coordinate_values'])
+        axis['coordinate_values'] = list(reversed(axis['coordinate_values']))
+        axis['coordinate_issues'] = sorted(
+            ({**issue, 'index': count - 1 - issue['index']}
+             for issue in axis['coordinate_issues']),
+            key=lambda issue: issue['index'],
+        )
+
+
+    def _open_output(self, output_path, **kwargs):
+        return open_new_output(output_path, (self.xdf_path, self.bin_path), **kwargs)
+
+
+    def definition_completeness(self):
+        """Account for every XDFTABLE declaration, including virtual views.
+
+        A missing contiguous Z-body address can be legitimate: TunerPro supports
+        per-cell MATH/VAR address sources. Such a view is unsupported here, not a
+        refuted mapping, and must never disappear behind a clean body-only grade.
+        """
+        declared = self.xdf_root.findall('.//XDFTABLE') if self.xdf_root is not None else []
+        parsed = {}
+        for table in self.elements.get('tables', []):
+            key = (table.get('uniqueid'), table.get('title'))
+            parsed[key] = parsed.get(key, 0) + 1
+        omitted = []
+        for table in declared:
+            title = self._get_title(table)
+            key = (table.get('uniqueid'), title)
+            if parsed.get(key, 0):
+                parsed[key] -= 1
+                continue
+            z = next((axis for axis in table.findall('XDFAXIS') if axis.get('id') == 'z'), None)
+            cells = []
+            if z is not None:
+                for conversion in z.findall('MATH'):
+                    if conversion.get('row') is not None or conversion.get('col') is not None:
+                        cells.append({'row': conversion.get('row'), 'column': conversion.get('col'),
+                                      'equation': conversion.get('equation', ''),
+                                      'variables': [dict(var.attrib) for var in conversion.findall('VAR')]})
+            omitted.append({'element_type': 'XDFTABLE', 'uniqueid': table.get('uniqueid'),
+                            'title': title,
+                            'reason': ('addressless_cell_math_table_not_implemented' if cells else
+                                       'table_has_no_extractable_Z_body_address'),
+                            'cell_math': cells,
+                            'definition_refuted': False})
+        return {'scope': 'XDFTABLE declarations', 'declared_tables': len(declared),
+                'extracted_tables': len(self.elements.get('tables', [])),
+                'omitted_count': len(omitted), 'complete': not omitted,
+                'omitted_definitions': omitted}
+
 
     def _require_safe_outputs(self, paths):
         """Reject destinations aliasing any source or another output."""
@@ -313,6 +403,7 @@ class UniversalXDFExporter:
             if ax['y'].get('display_labels'):
                 ax['y']['display_labels'] = list(
                     reversed(ax['y']['display_labels']))
+            self._flip_coordinate_evidence(ax['y'])
 
         # Flip X-axis (load) → reverse column order
         if self.flip_load and 'x' in ax:
@@ -323,6 +414,7 @@ class UniversalXDFExporter:
             if ax['x'].get('display_labels'):
                 ax['x']['display_labels'] = list(
                     reversed(ax['x']['display_labels']))
+            self._flip_coordinate_evidence(ax['x'])
 
         return data, ax
         
@@ -434,6 +526,11 @@ class UniversalXDFExporter:
                     )
                     return False
 
+        try:
+            self._validate_storage_declarations()
+        except ValueError as exc:
+            self.logger.error('Invalid XDF storage declaration: %s', exc)
+            return False
         self._audit_tunerpro_native_text_compatibility()
         
         # Extract header information
@@ -470,6 +567,44 @@ class UniversalXDFExporter:
         
         return True
 
+    def _validate_storage_declarations(self):
+        """Reject malformed explicit storage rather than silently using defaults."""
+        fields = ('mmedaddress','mmedelementsizebits','mmedtypeflags',
+                  'mmedrowcount','mmedcolcount','mmedmajorstridebits','mmedminorstridebits')
+        for storage in self.xdf_root.iter('EMBEDDEDDATA'):
+            for name in fields:
+                if name in storage.attrib:
+                    text = storage.attrib[name].strip()
+                    try:
+                        value = int(text, 16) if text.lower().startswith('0x') else int(text)
+                    except ValueError as exc:
+                        raise ValueError(f'{name} is not an integer: {text!r}') from exc
+                    if name in ('mmedrowcount','mmedcolcount','mmedelementsizebits') and value < 1:
+                        raise ValueError(f'{name} must be positive')
+        for offset in self.xdf_root.iter('BASEOFFSET'):
+            for name in ('offset','subtract'):
+                text = offset.get(name,'0')
+                try:
+                    value = int(text,16) if text.lower().startswith('0x') else int(text)
+                except ValueError as exc:
+                    raise ValueError(f'Invalid BASEOFFSET {name}') from exc
+                if name == 'subtract' and value not in (0,1):
+                    raise ValueError('BASEOFFSET subtract must be 0 or 1')
+        seen = set()
+        for node in list(self.xdf_root.iter('XDFTABLE')) + list(self.xdf_root.iter('XDFCONSTANT')):
+            uid = node.get('uniqueid')
+            if uid and uid not in ('0','0x0','0X0'):
+                if uid in seen:
+                    raise ValueError(f'Duplicate XDF object uniqueid {uid!r}')
+                seen.add(uid)
+        for flag in self.xdf_root.iter('XDFFLAG'):
+            if self._get_address(flag) is None:
+                raise ValueError(f'Flag {self._get_title(flag)!r} has no storage address')
+        for table in self.xdf_root.iter('XDFTABLE'):
+            z = next((n for n in table.findall('XDFAXIS') if n.get('id') == 'z'),None)
+            if z is not None and self._get_address(z) is None and not z.findall('MATH'):
+                raise ValueError(f'Table {self._get_title(table)!r} has no Z storage or conversion')
+
     @staticmethod
     def _looks_like_legacy_text_xdf(text: str) -> bool:
         """Return True for TunerPro 1.x block-oriented text definitions."""
@@ -490,13 +625,19 @@ class UniversalXDFExporter:
     @classmethod
     def _legacy_int(cls, raw_value: str, default: int = 0) -> int:
         value = cls._legacy_text_value(raw_value)
+        if not value:
+            return default
         try:
             return int(value, 0)
         except (TypeError, ValueError):
+            from decimal import Decimal, InvalidOperation
             try:
-                return int(float(value))
-            except (TypeError, ValueError):
-                return default
+                number = Decimal(value)
+                if not number.is_finite() or number != number.to_integral_value():
+                    raise ValueError('not a finite integer')
+                return int(number)
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValueError(f'Invalid legacy XDF integer: {value!r}') from exc
 
     @classmethod
     def _legacy_equation(cls, raw_value: str) -> str:
@@ -929,13 +1070,13 @@ class UniversalXDFExporter:
         # Index all XDFTABLE elements
         for table in self.xdf_root.findall('.//XDFTABLE'):
             uid = table.get('uniqueid')
-            if uid:
+            if uid and uid not in ('0','0x0','0X0'):
                 self.uniqueid_index[uid] = table
         
         # Index all XDFCONSTANT elements (scalars can be axis sources too)
         for const in self.xdf_root.findall('.//XDFCONSTANT'):
             uid = const.get('uniqueid')
-            if uid:
+            if uid and uid not in ('0','0x0','0X0'):
                 self.uniqueid_index[uid] = const
         
         if self.uniqueid_index:
@@ -1029,7 +1170,8 @@ class UniversalXDFExporter:
             conversion = target.find('MATH')
             linked = self._resolve_linked_vars(conversion, (*_seen, uid))
             equation = conversion.get('equation', '') if conversion is not None else ''
-            result[name] = self.evaluate_math(equation, raw, linked_vars=linked)[0]
+            result[name] = self.evaluate_math(equation, raw, linked_vars=linked,
+                                              math_element=conversion)[0]
         return result
     
     def _resolve_embedinfo_axis(self, axis_elem) -> List[float]:
@@ -1039,7 +1181,7 @@ class UniversalXDFExporter:
             return []
         uid = info.get('linkobjid', '')
         if not uid:
-            return []
+            raise ValueError('Required linked axis has no linkobjid')
         target = self.uniqueid_index.get(uid)
         if target is None:
             raise EquationError(f"Missing embedded-axis source {uid!r}")
@@ -1069,10 +1211,10 @@ class UniversalXDFExporter:
                 values = [value for row in data for value in row]
             else:
                 raise EquationError(f"Unsupported embedded-axis source type {target.tag}")
-            count = int(axis_elem.findtext('indexcount', str(len(values))))
-            if count > len(values):
+            count = int(axis_elem.findtext('indexcount', '0'))
+            if count <= 0 or count > len(values):
                 raise EquationError(f"Embedded-axis source {uid!r} has {len(values)} values; {count} required")
-            return values
+            return values[:count]
         finally:
             self._axis_link_stack = active
     
@@ -1144,7 +1286,7 @@ class UniversalXDFExporter:
                 except ValueError:
                     pass
         
-        return None
+        return 0 if embedded is not None else None
     
     def _parse_embedded_data(self, element) -> Dict:
         """
@@ -1179,6 +1321,8 @@ class UniversalXDFExporter:
         if embedded is None:
             return result
         result['storage_attributes'] = dict(embedded.attrib)
+        result['address'] = (None if not embedded.get('mmedaddress') and
+                             any(v.get('type') == 'address' for v in element.findall('.//VAR')) else 0)
         
         # Address
         addr_str = embedded.get('mmedaddress', '')
@@ -1514,7 +1658,8 @@ class UniversalXDFExporter:
             # silently accepted as -1 (or later retried as textual zero),
             # concealing a broken definition from every downstream table read.
             if equation and value_str:
-                self.evaluate_math(equation, value, linked_vars=linked_vars)
+                self.evaluate_math(equation, value, linked_vars=linked_vars,
+                                   math_element=math_elem)
             labels.append(value)
 
         count_elem = axis_elem.find('.//indexcount')
@@ -1545,31 +1690,33 @@ class UniversalXDFExporter:
 
         embedded = axis_elem.find('.//EMBEDDEDDATA')
         if embedded is None:
-            return []
+            raise ValueError('Required embedded axis has no storage')
 
-        addr_str = embedded.get('mmedaddress', '')
-        if not addr_str:
-            return []
+        addr_str = embedded.get('mmedaddress', '0')
         try:
             address = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
         except ValueError:
-            return []
+            raise ValueError('Required embedded axis has an invalid address')
 
         count_elem = axis_elem.find('.//indexcount')
         if count_elem is None or not count_elem.text:
-            return []
+            raise ValueError('Required embedded axis has no indexcount')
         try:
             count = int(count_elem.text.strip())
         except ValueError:
-            return []
+            raise ValueError('Required embedded axis has an invalid indexcount')
         if count <= 0 or count > 4096:
-            return []
+            raise ValueError('Required embedded axis indexcount must be 1..4096')
 
         try:
             size_bits = int(embedded.get('mmedelementsizebits', '8'))
         except ValueError:
             size_bits = 8
         byte_size = max(1, size_bits // 8)
+        if size_bits not in (8, 16, 32, 64):
+            raise ValueError('Unsupported embedded axis element width')
+        if int(embedded.get('mmedminorstridebits','0')) != 0:
+            raise ValueError('Embedded axis minor stride is unsupported')
 
         try:
             major_stride_bits = int(embedded.get('mmedmajorstridebits', '0'))
@@ -1613,12 +1760,13 @@ class UniversalXDFExporter:
                 is_float=is_float
             )
             if raw is None:
-                return []
+                raise ValueError('Required embedded axis extends outside the BIN')
             if equation:
                 value, _ = self.evaluate_math(
                     equation,
                     raw,
-                    linked_vars=linked_vars
+                    linked_vars=linked_vars,
+                    math_element=math_elem
                 )
                 values.append(float(value if value is not None else raw))
             else:
@@ -1689,7 +1837,10 @@ class UniversalXDFExporter:
                         pass
                 
                 # Extract axis labels with processing
-                axis_labels = self._extract_axis_labels(axis)
+                try:
+                    axis_labels = self._extract_axis_labels(axis)
+                except ValueError as exc:
+                    raise ValueError(f"Table {title!r} (uniqueid={table.get('uniqueid')!r}), axis {axis_id!r}: {exc}") from exc
                 display_labels = [
                     label.get('value', '')
                     for label in axis.findall('.//LABEL')
@@ -1717,6 +1868,10 @@ class UniversalXDFExporter:
                     'minor_stride': embedded['minor_stride'],
                     'decimalpl': axis_decimalpl
                 }
+                if axis_id in ('x', 'y'):
+                    axes[axis_id].update(
+                        self._axis_coordinate_evidence(axis, axis_labels)
+                    )
             
             # Get Z-axis (data) information
             z_axis = axes.get('z', {})
@@ -1761,8 +1916,8 @@ class UniversalXDFExporter:
             entries = []
             for entry in patch.findall('.//XDFPATCHENTRY'):
                 entry_name = entry.get('name', 'Unknown')
-                addr_str = entry.get('address', '0')
-                size_str = entry.get('datasize', '0')
+                addr_str = entry.get('address', '')
+                size_str = entry.get('datasize', '')
                 patch_data = entry.get('patchdata', '')
                 base_data = entry.get('basedata', '')
                 
@@ -1770,6 +1925,17 @@ class UniversalXDFExporter:
                     # Parse address and size
                     address = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
                     datasize = int(size_str, 16) if size_str.startswith('0x') else int(size_str)
+                    if address < 0 or datasize <= 0:
+                        raise ValueError('Patch address/size must be valid positive spans')
+                    if not any(entry.get(k) for k in ('patchdata','basedata')):
+                        raise ValueError('Patch entry has no comparison bytes')
+                    for key in ('patchdata','basedata'):
+                        if key in entry.attrib:
+                            value = bytes.fromhex(entry.attrib[key])
+                            if len(value) != datasize:
+                                raise ValueError('Patch data length does not equal datasize')
+                    patch_data = bytes.fromhex(patch_data).hex()
+                    base_data = bytes.fromhex(base_data).hex()
                     
                     entries.append({
                         'name': entry_name,
@@ -1778,8 +1944,8 @@ class UniversalXDFExporter:
                         'patchdata': patch_data.upper(),
                         'basedata': base_data.upper()
                     })
-                except ValueError:
-                    continue
+                except ValueError as exc:
+                    raise ValueError(f'Invalid patch entry {entry_name!r}: {exc}') from exc
             
             if entries:
                 # Check if patch is applied
@@ -1821,7 +1987,7 @@ class UniversalXDFExporter:
             
             # Validate offset
             if file_offset < 0 or file_offset + datasize > self.bin_size:
-                continue
+                return 'unknown'
             
             # Read actual bytes from BIN
             actual_bytes = self.bin_data[file_offset:file_offset + datasize]
@@ -1832,6 +1998,8 @@ class UniversalXDFExporter:
                 applied_count += 1
             elif base_data and actual_hex == base_data:
                 base_count += 1
+            else:
+                return 'unknown'
         
         # Determine status
         if applied_count == total:
@@ -1840,10 +2008,6 @@ class UniversalXDFExporter:
             return 'not_applied'
         elif applied_count > 0 and base_count > 0:
             return 'partial'
-        elif applied_count > 0:
-            return 'applied'
-        elif base_count > 0:
-            return 'not_applied'
         else:
             return 'unknown'
 
@@ -1971,6 +2135,7 @@ class UniversalXDFExporter:
         # Content patterns are review observations, not proof of a wrong address.
         refuted = sum(len(findings[k]) for k in
                       ('address_out_of_bounds', 'span_overruns_bin'))
+        completeness = self.definition_completeness()
         report = {
             # Reports may be shared as regression evidence. Preserve the source
             # identity without leaking a workstation-specific directory.
@@ -1982,11 +2147,13 @@ class UniversalXDFExporter:
                 ('all_zero_isolated', 'all_zero_in_zero_region',
                  'all_zero_written_bytes', 'degenerate_uniform')),
             'decode_error_count': len(findings['decode_error']),
-            'validation_complete': not findings['decode_error'] and not findings['address_missing'],
+            'validation_complete': graded > 0 and completeness['complete'] and not findings['decode_error'] and not findings['address_missing'],
+            'validation_errors': ([] if graded else ['No scalar, flag or table elements were graded']),
+            'definition_completeness': completeness,
             'refuted_pct': round(100 * refuted / graded, 1) if graded else 0.0,
             'counts': {k: len(v) for k, v in findings.items()},
             'findings': findings,
-            'grade': ('INCOMPLETE' if findings['decode_error'] or findings['address_missing'] else
+            'grade': ('INCOMPLETE' if not graded or not completeness['complete'] or findings['decode_error'] or findings['address_missing'] else
                       'A_clean' if refuted == 0 else
                       'B_minor' if refuted <= graded * 0.10 else
                       'C_significant' if refuted <= graded * 0.30 else
@@ -2073,9 +2240,9 @@ class UniversalXDFExporter:
                 for name, index, key in (('x', col, 'x_axis_value'), ('y', row, 'y_axis_value')):
                     if index < len(axis_values[name]):
                         context[key] = axis_values[name][index]
-                equation, linked = pick_equation(row, col)
+                equation, linked, conversion = pick_equation(row, col)
                 value, error = self.evaluate_math(equation, raw,
-                    context, linked_vars=linked)
+                    context, linked_vars=linked, math_element=conversion)
                 if value is None:
                     raise ValueError(f"Table {table['title']!r} cell [{row + 1},{col + 1}]: {error}")
                 values.append(value)
@@ -2123,11 +2290,21 @@ class UniversalXDFExporter:
     
     def evaluate_math(self, equation: str, raw_value: int,
                        axis_context: Optional[Dict] = None,
-                       linked_vars: Optional[Dict[str, float]] = None
+                       linked_vars: Optional[Dict[str, float]] = None,
+                       math_element=None
                        ) -> Tuple[Optional[float], str]:
         """Evaluate a numeric XDF conversion; unsupported conversions raise EquationError."""
         variables = self.math_variables(axis_context, linked_vars)
         variables.setdefault('X', raw_value)
+        # A declared VAR without a source type names the current raw value.
+        # E40 12598977 uses equation="w/160" with <VAR id="w" />. Do not infer
+        # aliases merely from equation tokens, or replace explicit link/context
+        # bindings (which may legitimately use the same variable names).
+        if math_element is not None:
+            for var in math_element.findall('VAR'):
+                name = var.get('id', '')
+                if name and not var.get('type'):
+                    variables.setdefault(name.upper(), raw_value)
         # These raw-variable names occur in retained legacy XDF fixtures.
         for name in re.findall(r'\bX\d+\b', equation or '', flags=re.IGNORECASE):
             variables.setdefault(name.upper(), raw_value)
@@ -2156,7 +2333,7 @@ class UniversalXDFExporter:
         return item.get('linked_vars', {})
 
     def _cell_equation_selector(self, z: Dict):
-        """Build a per-cell (equation, linked_vars) resolver for a Z axis.
+        """Build a per-cell (equation, linked_vars, MATH) resolver for a Z axis.
 
         TunerPro V5 tables may carry per-row, per-column and per-cell conversion
         equations via multiple <MATH> children with row=/col= attributes, each
@@ -2174,11 +2351,11 @@ class UniversalXDFExporter:
         global_eq = z.get('equation', '')
         if xml is None:
             global_lv = self.linked_vars_for(z)
-            return lambda r, c: (global_eq, global_lv)
+            return lambda r, c: (global_eq, global_lv, z.get('math_element'))
         maths = xml.findall('MATH')
         if not maths or (len(maths) == 1 and not any(k in maths[0].attrib for k in ('row', 'col'))):
             global_lv = self.linked_vars_for(z)
-            return lambda r, c: (global_eq, global_lv)
+            return lambda r, c: (global_eq, global_lv, z.get('math_element'))
 
         index_base = z.get('math_index_base', 0)
         if type(index_base) is not int or index_base not in (0, 1):
@@ -2198,7 +2375,7 @@ class UniversalXDFExporter:
             return value
 
         cell, rowm, colm = {}, {}, {}
-        g_eq, g_lv = None, {}
+        g_eq, g_lv, g_math = None, {}, None
         cache = {}
 
         def _lv(elem):
@@ -2223,21 +2400,23 @@ class UniversalXDFExporter:
                     raise ValueError("Duplicate scoped column MATH selector")
                 colm[c] = (eq, m)
             else:
-                g_eq, g_lv = eq, _lv(m)
+                if g_math is not None:
+                    raise ValueError('Duplicate global MATH selector')
+                g_eq, g_lv, g_math = eq, _lv(m), m
         def pick(r, c):
             ra, ca = r + index_base, c + index_base
             if (ra, ca) in cell:
                 eq, m = cell[(ra, ca)]
-                return eq, _lv(m)
+                return eq, _lv(m), m
             if ra in rowm:
                 eq, m = rowm[ra]
-                return eq, _lv(m)
+                return eq, _lv(m), m
             if ca in colm:
                 eq, m = colm[ca]
-                return eq, _lv(m)
+                return eq, _lv(m), m
             if g_eq is None:
                 raise ValueError("No global MATH for an uncovered scoped table cell")
-            return g_eq, g_lv
+            return g_eq, g_lv, g_math
 
         return pick
 
@@ -2245,12 +2424,9 @@ class UniversalXDFExporter:
     def _require_integer_storage(item):
         flags = item.get('type_flags', 0)
         # Bits: 0x01 signed, 0x02 LSB-first, 0x10000 float (all handled at read).
-        # 0x04 is a decode-no-op here: measured 2026-09-24 on the VS $51 Enhanced
-        # v1.4f XDF, all 92 tables carrying 0x04 read correctly as row-major (mean
-        # neighbour roughness 0.05-0.10 row-major vs 0.13-0.21 column-major), so
-        # it does NOT signal column-major and changes no value. Allow 0x04..0x07;
-        # still refuse genuinely unknown higher bits rather than misdecode.
-        if flags & ~(0x07 | FLOAT_FLAG):
+        # Neighbour roughness cannot prove 0x04 semantics. Keep that bit held
+        # until an exact native witness establishes its decoding contract.
+        if flags & ~(0x03 | FLOAT_FLAG):
             raise ValueError("Unsupported XDF storage flags; integer decoding is not established")
         if flags & FLOAT_FLAG and item.get('size', item.get('size_bits')) not in (32, 64):
             raise ValueError("XDF float cells must be 32 or 64 bits wide")
@@ -2263,7 +2439,8 @@ class UniversalXDFExporter:
         if raw is None:
             raise ValueError(f"Scalar {item.get('title')!r} cannot be read")
         value, _ = self.evaluate_math(item.get('equation', ''), raw,
-                                     linked_vars=self.linked_vars_for(item))
+                                     linked_vars=self.linked_vars_for(item),
+                                     math_element=item.get('math_element'))
         return raw, value
 
     def _scalar_export_value(self, item, raw_value):
@@ -2275,7 +2452,8 @@ class UniversalXDFExporter:
         try:
             value, _ = self.evaluate_math(
                 item['equation'], raw_value,
-                linked_vars=self.linked_vars_for(item)
+                linked_vars=self.linked_vars_for(item),
+                math_element=item.get('math_element')
             )
             return value, None
         except EquationError as exc:
@@ -2285,6 +2463,11 @@ class UniversalXDFExporter:
 
     def _require_complete_export(self):
         """Validate every object's values before opening an output file."""
+        completeness = self.definition_completeness()
+        if not completeness['complete']:
+            details = '; '.join(f"{item['uniqueid']} {item['title']}: {item['reason']}"
+                                for item in completeness['omitted_definitions'])
+            raise ValueError(f"Incomplete XDF extraction: {completeness['omitted_count']} declared tables omitted. {details}")
         for item in self.elements.get('constants', []):
             self.read_constant(item)
         for item in self.elements.get('flags', []):
@@ -2318,7 +2501,7 @@ class UniversalXDFExporter:
             self._require_safe_outputs([output_path])
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with self._open_output(output_path, encoding='utf-8') as f:
                 # Write TunerPro-style header
                 f.write("=" * 60 + "\n")
                 f.write("TunerPro Bin Data Export\n")
@@ -2658,7 +2841,6 @@ class UniversalXDFExporter:
             bool: True if successful
         """
         try:
-            self._require_safe_outputs([output_path])
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
             export_data = {
@@ -2770,8 +2952,12 @@ class UniversalXDFExporter:
                         'minor_stride': axis.get('minor_stride', 0),
                         'decimalpl': axis.get('decimalpl', 2)
                     }
-                if axis_id == 'z':
-                    table_entry['axes'][axis_id]['math_index_base'] = axis.get('math_index_base', 0)
+                    if axis_id in ('x', 'y'):
+                        for key in ('coordinate_source', 'coordinate_values',
+                                    'coordinate_issues', 'numeric_coordinates_complete'):
+                            table_entry['axes'][axis_id][key] = axis[key]
+                    if axis_id == 'z':
+                        table_entry['axes'][axis_id]['math_index_base'] = axis.get('math_index_base', 0)
                 
                 # Get decimalpl from Z-axis for proper rounding
                 z_axis = table.get('axes', {}).get('z', {})
@@ -2802,6 +2988,9 @@ class UniversalXDFExporter:
                                     'display_labels'):
                                 te['display_labels'] = fa[
                                     'display_labels']
+                            if fa and te:
+                                for key in ('coordinate_values', 'coordinate_issues'):
+                                    te[key] = fa[key]
 
                     # Round values for JSON
                     table_entry['data'] = [
@@ -2850,7 +3039,7 @@ class UniversalXDFExporter:
                 export_data['patches'].append(patch_entry)
             
             # Write JSON
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with self._open_output(output_path, encoding='utf-8') as f:
                 json.dump(export_data, f, indent=2, ensure_ascii=False)
             
             self.logger.info(f"JSON export complete: {output_path}")
@@ -2874,7 +3063,7 @@ class UniversalXDFExporter:
             self._require_safe_outputs([output_path])
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with self._open_output(output_path, encoding='utf-8') as f:
                 # Header
                 f.write(f"# ECU Calibration Export\n\n")
                 f.write(f"## Metadata\n\n")
@@ -3105,7 +3294,7 @@ class UniversalXDFExporter:
             self._require_safe_outputs([output_path])
             self._require_complete_export()
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, 'w', newline='',
+            with self._open_output(output_path, newline='',
                        encoding='utf-8') as f:
                 writer = csv.writer(f)
                 writer.writerow([
@@ -3275,7 +3464,7 @@ class UniversalXDFExporter:
                         'cols': len(table_data[0]) if table_data else 0,
                     })
 
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with self._open_output(output_path, encoding='utf-8') as f:
                 f.write(f"# Zero-Value Report\n\n")
                 f.write(f"## Metadata\n\n")
                 f.write(f"| Property | Value |\n")
@@ -3497,7 +3686,8 @@ def main():
         rep = exporter.run_diagnostics()
         diag_path = Path(output_base).parent / f"{Path(output_base).stem}_diagnostics.json"
         diag_path.parent.mkdir(parents=True, exist_ok=True)
-        diag_path.write_text(_json.dumps(rep, indent=2), encoding='utf-8')
+        with exporter._open_output(diag_path, encoding='utf-8') as handle:
+            handle.write(_json.dumps(rep, indent=2))
         print("=" * 70)
         safe_print(f"  DIAGNOSTICS  {exporter.definition_name}")
         print("=" * 70)

@@ -7,7 +7,9 @@
 
 **XDF + BIN export helper for regression testing and automation**
 
-### Shared exporter package, version 3.7.2
+### Shared exporter package, version 3.7.3+reconcile.20261015
+
+This is a local integration review version, not a published release.
 
 The CLI and shared `tunerpro_xdf` modules install together. No other local
 repository or GUI dependency is needed for the command-line exporter:
@@ -25,28 +27,31 @@ successful parsing alone does not establish compatibility with native TunerPro.
 
 The compatibility reference checked on 24 September 2026 is **TunerPro RT
 5.00.10305**, released 21 January 2026 on the [official download page](https://www.tunerpro.net/downloadApp.htm).
-The installed version matches that listing. Its bundled XDF Table Editor help
+The recorded installed build matched that listing at that time. Its bundled XDF Table Editor help
 documents zero-based equation indices and cell, row, column, then global
-equation priority. The exporter follows those rules. Non-default table strides
-and storage flags whose meaning is not established are rejected pending native
-comparison fixtures. The tests establish the documented behavior and bounded
+equation priority. The exporter follows that selector contract. Positive,
+byte-aligned noncontiguous strides permit read-only review, not native-parity
+claims or writes. Negative/unaligned strides and storage flags whose meaning
+is not established are rejected. The tests establish bounded
 file access; they are not a claim of complete native parity or flash safety.
 
 An unresolved linked axis is an explicit error, even where native TunerPro
 displays zero labels. Definitions with that defect, unverified storage flags,
-or non-default table strides may therefore stop exporting in this version.
+or incomplete storage declarations may therefore stop exporting in this version.
 The original XDF and BIN are left untouched; correct the definition or retain
 the older tool for separately reviewed exploratory work.
 
-The packaged release is the read-only exporter core. The GUI, BMW converter
-and historical collection/organizer scripts are separate repository tools and
-are not included in the wheel or covered by this release's validation.
+The wheel contains the read-only exporter core, shared `tunerpro_xdf` modules,
+BMW container converter and saved-native-text parity helper. The GUI and
+historical collection/organizer scripts remain separate repository tools.
+Installing the wheel does not install PySide6 or validate the GUI.
 The licence remains the existing **custom source-available licence**, including
 the requirement for commercial-use permission; its terms have not been changed.
 
 Portable tests use synthetic data. Optional local compatibility fixtures are
-selected explicitly with `KINGAI_TEST_MS42_XDF`, `KINGAI_TEST_MS42_NATIVE_EXPORT`
-and `KINGAI_TEST_MS41_DEFINITIONS`; they are skipped when not supplied. Private
+selected with `KINGAI_MS42_FIXTURE_ROOT` (containing `xdfs/` and `docs/`),
+`KINGAI_BMW_DEFINITION_ROOT` (MS41 definitions) and `KINGAI_SPDATEN_ROOT`
+(containing `MDS450/`); tests skip when the exact inputs are absent. Private
 firmware, native captures and generated diagnostics are not distributed.
 
 ```console
@@ -54,6 +59,21 @@ python -m pip install ".[test]" build
 python -m pytest
 python -m build
 ```
+
+Export destinations must be new files. Input aliases, existing reports and
+colliding derived sidecars are rejected before export; exclusive creation also
+protects an existing file created after preflight. This is not a multi-file
+transaction: interruption can leave partial newly created outputs. Original
+inputs are never intentionally rewritten. Native-text parity requires at least
+one compared object, matching units and complete evidence; empty comparisons
+are `INCONCLUSIVE`, not `PASS`. The default numeric tolerance includes half a
+native display unit at its printed precision, plus `1e-12`, with an optional
+finite, nonnegative absolute floor. Neither a uniform nor an all-zero table
+alone proves that the definition is wrong.
+
+See [the integration audit](docs/output-preservation-audit-20261014.md) for
+review decisions and known real-definition failures. Native TunerPro parity,
+ECU identity, editing safety and vehicle safety are not certified by CLI tests.
 
 A powerful Python tool that exports ECU calibration data from TunerPro XDF definition files combined with matching BIN firmware files to multiple formats: TXT, JSON, Markdown, and CSV.
 
@@ -565,7 +585,7 @@ ERROR: Address 0x90000 out of range for 512KB BIN file
 
 ### 🔄 FIXED in v3.3.0 & v3.4.0
 
-The following is historical implementation information. Version 3.7.2 uses
+The following is historical implementation information. The current package uses
 the bounded interpreter described above and does not invent values for missing
 variables or convert malformed equations into different expressions.
 
@@ -623,7 +643,7 @@ Some older XDF files use non-standard formats:
 | Format Issue | Status | Workaround |
 |--------------|--------|------------|
 | No `<XDFHEADER>` section | ⚠️ Partial | Uses filename as definition name |
-| `mmedtypeflags` instead of `mmedaddress` | ✅ Handled | Auto-detected and parsed |
+| Explicit `mmedtypeflags` | Bounded support | Known storage flags only; never a substitute for `mmedaddress` |
 | Negative BASEOFFSET values | ✅ Fixed | Now handles subtract flag properly |
 | HTML entities in descriptions | ✅ Fixed | Decoded automatically |
 | Row-major vs column-major tables | ⚠️ Check | May need manual verification |
@@ -634,7 +654,7 @@ Some older XDF files use non-standard formats:
 
 ```
 TunerPro-XDF-BIN-Universal-Exporter/
-├── tunerpro_exporter.py   # Main CLI exporter (v3.7.2)
+├── tunerpro_exporter.py   # Main CLI exporter (version matches pyproject.toml)
 ├── tunerpro_xdf/          # Shared addressing, values and bounded equations
 ├── pyproject.toml        # Package and command-line entry point
 ├── exporter_gui.py        # PySide6 Qt GUI frontend (v3.2.0)

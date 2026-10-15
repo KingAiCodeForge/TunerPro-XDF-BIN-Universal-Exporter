@@ -9,6 +9,10 @@ correct file offsets, checksum, safe tune edits, or physical ECU behavior.
 from __future__ import annotations
 
 import csv
+import json
+import sys
+import pytest
+import tunerpro_native_export_parity as parity
 from tunerpro_native_export_parity import (
     DisplayNumber, NativeTable, compare_exports, parse_native_export, write_csv,
 )
@@ -133,3 +137,33 @@ def test_csv_contains_unit_mismatch_flag(tmp_path):
         records = list(csv.DictReader(file))
     assert records[0]["status"] == "MISMATCH"
     assert records[0]["unit_match"] == "False"
+
+
+@pytest.mark.parametrize("delta,tolerance,status", [
+    (0.0049, 0.0, "PASS"), (0.0051, 0.0, "FAIL"),
+    (0.0099, 0.01, "PASS"), (0.0101, 0.01, "FAIL"),
+])
+def test_display_precision_and_explicit_tolerance(delta, tolerance, status):
+    report = compare_exports(native(scalars=[scalar_native()]),
+                             exporter(scalars=[scalar_exporter(value=100.0 + delta)]), tolerance)
+    assert report["status"] == status
+    assert report["scalars"][0]["tolerance"] == max(tolerance, 0.005 + 1e-12)
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("nan"), -1.0])
+def test_invalid_tolerance_cannot_create_false_match(value):
+    with pytest.raises(ValueError, match="finite and nonnegative"):
+        compare_exports(native(scalars=[scalar_native()]),
+                        exporter(scalars=[scalar_exporter(value=999.0)]), value)
+
+
+def test_incomplete_scalar_returns_useful_cli_error(tmp_path, monkeypatch, capsys):
+    source = tmp_path / "native.txt"
+    source.write_text("SCALAR: Pressure                    100.00 kPa\n", encoding="utf-8")
+    exported = tmp_path / "incomplete.json"
+    exported.write_text(json.dumps({"scalars": [{"title": "Pressure", "unit": "kPa"}]}))
+    output = tmp_path / "parity.json"
+    monkeypatch.setattr(sys, "argv", ["parity", str(source), str(exported), "--out", str(output)])
+    assert parity.main() == 2
+    assert "has no numeric value" in capsys.readouterr().err
+    assert not output.exists()
