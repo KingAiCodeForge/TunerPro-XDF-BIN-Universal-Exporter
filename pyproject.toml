@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kingai-tunerpro-xdf"
-version = "3.7.3+reconcile.20261015"
+version = "3.7.3+unitparity.20261015"
 description = "Shared TunerPro XDF parsing and BIN export implementation"
 requires-python = ">=3.10"
 readme = "README.md"
@@ -19,6 +19,7 @@ Repository = "https://github.com/KingAiCodeForge/TunerPro-XDF-BIN-Universal-Expo
 
 [project.scripts]
 tunerpro-xdf-export = "tunerpro_exporter:main"
+tunerpro-native-parity = "tunerpro_native_export_parity:main"
 
 [tool.setuptools]
 py-modules = ["tunerpro_exporter", "bmw_0pa_0da_to_bin", "tunerpro_native_export_parity"]

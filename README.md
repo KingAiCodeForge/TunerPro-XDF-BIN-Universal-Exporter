@@ -7,7 +7,7 @@
 
 **XDF + BIN export helper for regression testing and automation**
 
-### Shared exporter package, version 3.7.3+reconcile.20261015
+### Shared exporter package, version 3.7.3+unitparity.20261015
 
 This is a local integration review version, not a published release.
 
@@ -70,6 +70,14 @@ are `INCONCLUSIVE`, not `PASS`. The default numeric tolerance includes half a
 native display unit at its printed precision, plus `1e-12`, with an optional
 finite, nonnegative absolute floor. Neither a uniform nor an all-zero table
 alone proves that the definition is wrong.
+
+The `tunerpro-native-parity` installed command compares saved native text with
+exporter JSON. Unit comparisons preserve case (`mA` is not `MA`), normalize only
+whitespace, and do not infer aliases or temperature conversions. Numeric and
+declared-unit verdicts are reported separately in JSON and CSV. Two missing unit
+declarations are marked `UNSPECIFIED`, not physically verified. Ragged matrices
+are mismatches rather than truncated comparisons. Existing `unit_match` fields
+remain available for consumers of the earlier report schema.
 
 See [the integration audit](docs/output-preservation-audit-20261014.md) for
 review decisions and known real-definition failures. Native TunerPro parity,

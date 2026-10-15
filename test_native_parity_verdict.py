@@ -96,9 +96,9 @@ def test_table_different_unit_fails_even_when_cells_match():
     assert r["tables"][0]["mismatches"] >= 1
 
 
-def test_whitespace_and_case_of_same_unit_are_not_differences():
+def test_whitespace_of_same_unit_is_not_a_difference():
     r = compare_exports(native(scalars=[scalar_native(unit="kPa  /  s")]),
-                        exporter(scalars=[scalar_exporter(unit="KPA / S")]), 0.0)
+                        exporter(scalars=[scalar_exporter(unit="kPa / s")]), 0.0)
     assert r["status"] == "PASS"
 
 
