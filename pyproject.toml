@@ -21,7 +21,7 @@ Repository = "https://github.com/KingAiCodeForge/TunerPro-XDF-BIN-Universal-Expo
 tunerpro-xdf-export = "tunerpro_exporter:main"
 
 [tool.setuptools]
-py-modules = ["tunerpro_exporter"]
+py-modules = ["tunerpro_exporter", "bmw_0pa_0da_to_bin", "tunerpro_native_export_parity"]
 packages = ["tunerpro_xdf"]
 
 [tool.pytest.ini_options]

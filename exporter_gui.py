@@ -148,29 +148,34 @@ class ExportWorker(QThread):
             )
             
             self.output_files = []
-            
+
+            # Check every requested GUI destination together. In particular,
+            # changing the suffix can make an output equal an input path.
+            output_base = Path(self.output_path)
+            destinations = []
             for fmt in self.formats:
-                self.progress.emit(f"Exporting to {fmt.upper()} format...")
-                
-                # Determine output filename
-                output_base = Path(self.output_path)
-                if output_base.suffix.lower() in ['.txt', '.json', '.md', '.text', '.test', '.csv']:
-                    output_file = str(output_base.with_suffix(f'.{fmt}'))
+                if fmt not in ('txt', 'text', 'test', 'json', 'md', 'csv'):
+                    raise ValueError(f"Unsupported export format: {fmt}")
+                if output_base.suffix.lower() in ('.txt', '.json', '.md', '.text', '.test', '.csv'):
+                    destinations.append(str(output_base.with_suffix(f'.{fmt}')))
                 else:
-                    output_file = f"{self.output_path}.{fmt}"
-                
-                if fmt in ['txt', 'text', 'test']:
-                    exporter.export_to_text(output_file)
+                    destinations.append(f"{self.output_path}.{fmt}")
+            exporter._require_safe_outputs(destinations)
+
+            for fmt, output_file in zip(self.formats, destinations):
+                self.progress.emit(f"Exporting to {fmt.upper()} format...")
+                if fmt in ('txt', 'text', 'test'):
+                    ok = exporter.export_to_text(output_file)
                 elif fmt == 'json':
-                    exporter.export_to_json(output_file)
+                    ok = exporter.export_to_json(output_file)
                 elif fmt == 'md':
-                    exporter.export_to_markdown(output_file)
-                elif fmt == 'csv':
-                    # Export to CSV format
-                    self._export_csv(exporter, output_file)
-                
+                    ok = exporter.export_to_markdown(output_file)
+                else:
+                    ok = exporter.export_to_csv(output_file)
+                if not ok:
+                    raise RuntimeError(f"Export to {fmt.upper()} failed: {output_file}")
                 self.output_files.append(output_file)
-            
+
             files_str = ", ".join([Path(f).name for f in self.output_files])
             self.finished.emit(True, f"Export complete!\n\nCreated: {files_str}", self.output_files)
         
@@ -178,44 +183,9 @@ class ExportWorker(QThread):
             self.finished.emit(False, f"Export failed!\n\nError: {str(e)}", [])
     
     def _export_csv(self, exporter, output_file: str):
-        """Export to CSV format for spreadsheet analysis"""
-        import csv
-        with open(output_file, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Type', 'Category', 'Title', 'Address', 'Value', 'Units', 'Description'])
-            
-            for const in exporter.elements['constants']:
-                writer.writerow([
-                    'Constant',
-                    const.get('category', 'Uncategorized'),
-                    const.get('title', 'Unknown'),
-                    f"0x{const.get('address', 0):X}",
-                    const.get('value', ''),
-                    const.get('units', ''),
-                    const.get('description', '')[:100]
-                ])
-            
-            for flag in exporter.elements['flags']:
-                writer.writerow([
-                    'Flag',
-                    flag.get('category', 'Uncategorized'),
-                    flag.get('title', 'Unknown'),
-                    f"0x{flag.get('address', 0):X}",
-                    'Set' if flag.get('value', False) else 'Not Set',
-                    '',
-                    flag.get('description', '')[:100]
-                ])
-            
-            for table in exporter.elements['tables']:
-                writer.writerow([
-                    'Table',
-                    table.get('category', 'Uncategorized'),
-                    table.get('title', 'Unknown'),
-                    f"0x{table.get('address', 0):X}",
-                    f"{table.get('rows', 0)}x{table.get('cols', 0)}",
-                    table.get('units', ''),
-                    table.get('description', '')[:100]
-                ])
+        """Compatibility wrapper for the core, guarded CSV writer."""
+        if not exporter.export_to_csv(output_file):
+            raise RuntimeError(f"CSV export failed: {output_file}")
 
 
 class TunerProExporterGUI(QMainWindow):
