@@ -2,7 +2,7 @@
 
 [![Author](https://img.shields.io/badge/Author-Jason%20King-blue)](https://github.com/KingAiCodeForge)
 [![GitHub](https://img.shields.io/badge/GitHub-KingAiCodeForge-181717?logo=github)](https://github.com/KingAiCodeForge)
-[![License](https://img.shields.io/badge/License-Custom%20Source--Available-orange)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 **XDF + BIN export helper for regression testing and automation**
@@ -41,8 +41,9 @@ the older tool for separately reviewed exploratory work.
 The packaged release is the read-only exporter core. The GUI, BMW converter
 and historical collection/organizer scripts are separate repository tools and
 are not included in the wheel or covered by this release's validation.
-The licence remains the existing **custom source-available licence**, including
-the requirement for commercial-use permission; its terms have not been changed.
+The project is licensed under the **MIT License**, allowing free personal and commercial use,
+modification and redistribution subject to retaining the copyright and licence notice.
+ECU calibration, checksum, flashing and vehicle safety still require separate validation.
 
 Portable tests use synthetic data. Optional local compatibility fixtures are
 selected explicitly with `KINGAI_TEST_MS42_XDF`, `KINGAI_TEST_MS42_NATIVE_EXPORT`
@@ -644,7 +645,7 @@ TunerPro-XDF-BIN-Universal-Exporter/
 ├── launch_gui.bat         # Quick GUI launcher
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This documentation
-├── LICENSE                # Custom source-available licence
+├── LICENSE                # MIT License
 └── .gitignore             # Git ignore rules
 ```
 
@@ -736,8 +737,9 @@ This project is open for contributions from the PCMHacking community!
 
 Copyright (c) 2025 KingAi PTY LTD - Jason King
 
-This software is provided for educational and personal use.
-Commercial use requires written permission from the author.
+This project is licensed under the MIT License. Personal and commercial use,
+modification and distribution are permitted subject to its notice requirements.
+This is an ECU file inspection and export tool, not a validated ECU flashing or safety system.
 
 ---
 
