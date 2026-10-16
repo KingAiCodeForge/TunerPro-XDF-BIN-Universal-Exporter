@@ -61,10 +61,10 @@
  LICENSE
 ===============================================================================
  
- Copyright (c) 2025 KingAI Pty Ltd - Jason King
+ Copyright (c) 2025-2026 KingAI Pty Ltd - Jason King
  
- This software is provided for educational and personal use.
- Commercial use requires written permission from the author.
+ Licensed under the MIT License. Free for personal and commercial use.
+ See the repository LICENSE for the full terms.
  
 ===============================================================================
 """
