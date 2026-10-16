@@ -8,7 +8,7 @@ version = "3.7.3"
 description = "Shared TunerPro XDF parsing and BIN export implementation"
 requires-python = ">=3.10"
 readme = "README.md"
-license = "LicenseRef-KingAI-Source-Available"
+license = "MIT"
 license-files = ["LICENSE"]
 
 [project.optional-dependencies]
