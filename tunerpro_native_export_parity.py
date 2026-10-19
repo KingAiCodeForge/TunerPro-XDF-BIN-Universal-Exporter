@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compare Universal exporter JSON with a native TunerPro text export.
 
-This checks displayed values, axes, dimensions, and table orientation. It does
-not prove raw addresses, checksums, patches, or unsupported TunerPro equations.
+This checks displayed values, axes, dimensions, table orientation, and declared
+scalar/table-cell units. It does not infer unit conversions or prove raw
+addresses, checksums, patches, or unsupported TunerPro equations.
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ class NativeTable:
     data: list[list[DisplayNumber]]
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("tunerpro_export", type=Path)
     parser.add_argument("exporter_json", type=Path)
@@ -75,10 +76,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--absolute-tolerance",
         type=float,
-        default=1e-9,
-        help="Minimum numeric tolerance in addition to native display precision.",
+        default=0.0,
+        help=("Optional minimum numeric tolerance (default: 0; native display "
+              "precision and floating-point representation slack only)."),
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def read_text(path: Path) -> str:
@@ -95,11 +97,42 @@ def normalize_title(value: str) -> str:
     return " ".join(value.strip().split())
 
 
+def _display_half_unit(decimals: int) -> float:
+    """Return half of the displayed decimal quantum or fail closed.
+
+    Scientific notation can request a decimal quantum below the smallest
+    representable binary float.  In that regime a float-only parity check
+    cannot distinguish adjacent displayed values, so refuse it instead of
+    letting ULP slack dominate the native precision.
+    """
+    try:
+        quantum = 10.0 ** (-decimals)
+    except OverflowError as exc:
+        raise ValueError("native display quantum is outside finite float range") from exc
+    half = 0.5 * quantum
+    if not math.isfinite(quantum) or quantum <= 0.0 or not math.isfinite(half) or half <= 0.0:
+        raise ValueError("native display quantum is outside finite float range")
+    return half
+
+
 def parse_display_number(token: str) -> DisplayNumber:
     text = token.strip()
-    mantissa = re.split(r"[Ee]", text, maxsplit=1)[0]
-    decimals = len(mantissa.rsplit(".", 1)[1]) if "." in mantissa else 0
-    return DisplayNumber(float(text), decimals, text)
+    if NUMBER_RE.fullmatch(text) is None:
+        raise ValueError("native display token is not a decimal number")
+    mantissa, *exponent_parts = re.split(r"[Ee]", text, maxsplit=1)
+    mantissa_decimals = len(mantissa.rsplit(".", 1)[1]) if "." in mantissa else 0
+    exponent = int(exponent_parts[0]) if exponent_parts else 0
+    # E.g. 1.23e-5 has a display quantum of 1e-7, not 1e-2.
+    decimals = mantissa_decimals - exponent
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError("native display token is not a finite number")
+    if value == 0.0 and any(c in "123456789" for c in mantissa):
+        raise ValueError("native display token underflows binary float")
+    display_half_unit = _display_half_unit(decimals)
+    if math.ulp(value) >= display_half_unit:
+        raise ValueError("native display precision is finer than binary float resolution")
+    return DisplayNumber(value, decimals, text)
 
 
 def numeric_line(line: str) -> list[DisplayNumber] | None:
@@ -459,17 +492,18 @@ def display_matches(
     candidate: float,
     absolute_tolerance: float,
 ) -> tuple[bool, float, float]:
+    if not math.isfinite(absolute_tolerance) or absolute_tolerance < 0:
+        raise ValueError("absolute tolerance must be finite and nonnegative")
     if not math.isfinite(native.value) or not math.isfinite(candidate):
-        matched = (
-            math.isnan(native.value)
-            and math.isnan(candidate)
-            or native.value == candidate
-        )
-        return matched, 0.0 if matched else math.inf, absolute_tolerance
-    tolerance = max(
-        absolute_tolerance,
-        0.5 * (10.0 ** (-native.decimals)) + 1e-12,
-    )
+        return False, math.inf, absolute_tolerance
+    # DisplayNumber.decimals incorporates scientific notation's exponent.
+    # The small additive ULP allowance covers binary representation at the
+    # display half-unit boundary; using max() alone did not protect a boundary
+    # when the display quantum was much larger than one ULP.
+    display_half_unit = _display_half_unit(native.decimals)
+    rounding_slack = 4.0 * max(math.ulp(native.value), math.ulp(candidate))
+    display_tolerance = display_half_unit + rounding_slack
+    tolerance = max(absolute_tolerance, display_tolerance)
     delta = abs(native.value - candidate)
     return delta <= tolerance, delta, tolerance
 
@@ -517,6 +551,44 @@ def oriented_candidates(table: dict[str, Any]) -> Iterable[dict[str, Any]]:
                 }
 
 
+def validate_table_evidence(table: dict[str, Any]) -> None:
+    """Reject malformed JSON before orientation/zip can discard evidence."""
+    title = table.get("title", "")
+    axes = table.get("axes")
+    if axes is None:
+        axes = {}
+    if not isinstance(axes, dict):
+        raise ValueError(f"Exporter table {title!r}: axes must be an object")
+    for axis_id in ("x", "y", "z"):
+        axis = axes.get(axis_id)
+        if axis is None:
+            continue
+        if not isinstance(axis, dict):
+            raise ValueError(f"Exporter table {title!r}: axis {axis_id} must be an object")
+        labels = axis.get("labels")
+        if labels is not None:
+            if not isinstance(labels, list):
+                raise ValueError(f"Exporter table {title!r}: axis {axis_id} labels must be a list")
+            try:
+                for value in labels:
+                    float(value)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Exporter table {title!r}: axis {axis_id} has a nonnumeric label") from exc
+    data = table.get("data")
+    if data is None:
+        return
+    if not isinstance(data, list) or any(not isinstance(row, list) for row in data):
+        raise ValueError(f"Exporter table {title!r}: data must be a list of rows")
+    if data and any(len(row) != len(data[0]) for row in data):
+        raise ValueError(f"Exporter table {title!r}: data must be rectangular")
+    try:
+        for row in data:
+            for value in row:
+                float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Exporter table {title!r}: data contains a nonnumeric cell") from exc
+
+
 def compare_number_series(
     native: Sequence[DisplayNumber],
     candidate: Sequence[float],
@@ -551,6 +623,13 @@ def compare_matrix(
     candidate: Sequence[Sequence[float]],
     absolute_tolerance: float,
 ) -> dict[str, Any]:
+    native_lengths = [len(row) for row in native]
+    candidate_lengths = [len(row) for row in candidate]
+    if len(set(native_lengths)) > 1 or len(set(candidate_lengths)) > 1:
+        count = max(sum(native_lengths), sum(candidate_lengths))
+        return {"count": count, "mismatches": max(1, count), "max_delta": None,
+                "shape_mismatch": True, "reason": "Non-rectangular matrix",
+                "native_row_lengths": native_lengths, "candidate_row_lengths": candidate_lengths}
     native_shape = (
         len(native),
         len(native[0]) if native else 0,
@@ -559,13 +638,17 @@ def compare_matrix(
         len(candidate),
         len(candidate[0]) if candidate else 0,
     )
-    if native_shape != candidate_shape:
+    ragged = (
+        any(len(row) != native_shape[1] for row in native)
+        or any(len(row) != candidate_shape[1] for row in candidate)
+    )
+    if native_shape != candidate_shape or ragged:
         return {
             "count": max(
                 native_shape[0] * native_shape[1],
                 candidate_shape[0] * candidate_shape[1],
             ),
-            "mismatches": max(
+            "mismatches": max(1,
                 native_shape[0] * native_shape[1],
                 candidate_shape[0] * candidate_shape[1],
             ),
@@ -600,6 +683,9 @@ def compare_table(
     exported: dict[str, Any],
     absolute_tolerance: float,
 ) -> dict[str, Any]:
+    if not native.data or not any(native.data):
+        return {'status': 'MISMATCH', 'orientation': None, 'mismatches': 1,
+                'reason': 'native table has no data cells to compare'}
     candidates: list[dict[str, Any]] = []
     for candidate in oriented_candidates(exported):
         x_result = compare_number_series(
@@ -647,11 +733,59 @@ def compare_table(
     return best
 
 
+def _normalized_display_unit(value: object) -> str:
+    """Compare native/exporter labels without inventing unit conversions.
+
+    Redundant whitespace is presentation-only. Case remains significant for SI
+    prefixes; aliases and unit conversions are not inferred.
+    """
+    return " ".join(str(value or "").split())
+
+
+def compare_units(native_unit: object, exported_unit: object) -> dict[str, Any]:
+    """Keep declared-unit agreement separate from physical-unit proof."""
+    native = _normalized_display_unit(native_unit)
+    exported = _normalized_display_unit(exported_unit)
+    matches = native == exported
+    status = "UNSPECIFIED" if not native and not exported else (
+        "MATCH" if matches else "MISMATCH"
+    )
+    if status == "UNSPECIFIED":
+        reason = "Neither export declares units; physical units remain unverified"
+    elif matches:
+        reason = "Declared units agree after whitespace normalization"
+    elif not native or not exported:
+        reason = "One export omits the declared unit"
+    else:
+        reason = "Declared units differ; no alias or conversion equivalence is assumed"
+    return {
+        "unit_match": matches,
+        "unit_matches": matches,
+        "unit_status": status,
+        "unit_reason": reason,
+    }
+
+
 def compare_exports(
     native: dict[str, Any],
     exported: dict[str, Any],
     absolute_tolerance: float,
 ) -> dict[str, Any]:
+    if not math.isfinite(absolute_tolerance) or absolute_tolerance < 0:
+        raise ValueError("Absolute tolerance must be finite and nonnegative")
+    for kind in ("scalars", "tables"):
+        items = exported.get(kind, [])
+        if items is None:
+            continue
+        if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+            raise ValueError(f"Exporter {kind} must be a list of objects")
+    for item in exported.get("scalars") or []:
+        try:
+            float(item.get("value"))
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Exporter scalar {item.get('title', '')!r} has no numeric value") from exc
+    for table in exported.get("tables") or []:
+        validate_table_evidence(table)
     native_scalars = {
         (item["title"], item["occurrence"]): item
         for item in native["scalars"]
@@ -677,18 +811,25 @@ def compare_exports(
             float(actual.get("value")),
             absolute_tolerance,
         )
+        native_unit = str(expected.get("unit") or "")
+        exporter_unit = str(actual.get("unit") or "")
+        unit_result = compare_units(native_unit, exporter_unit)
+        unit_match = unit_result["unit_match"]
         scalar_results.append(
             {
                 "type": "scalar",
                 "title": key[0],
                 "occurrence": key[1],
-                "status": "MATCH" if matched else "MISMATCH",
+                "status": "MATCH" if matched and unit_match else "MISMATCH",
+                "numeric_match": matched,
+                "value_status": "MATCH" if matched else "MISMATCH",
+                **unit_result,
                 "native_value": expected["value"].value,
                 "exporter_value": actual.get("value"),
                 "delta": delta,
                 "tolerance": tolerance,
-                "native_unit": expected["unit"],
-                "exporter_unit": str(actual.get("unit") or ""),
+                "native_unit": native_unit,
+                "exporter_unit": exporter_unit,
             }
         )
 
@@ -699,16 +840,25 @@ def compare_exports(
             exported_tables[key],
             absolute_tolerance,
         )
+        native_unit = native_tables[key].unit
+        exporter_unit = str(
+            (((exported_tables[key].get("axes") or {}).get("z") or {}).get("unit"))
+            or ""
+        )
+        unit_result = compare_units(native_unit, exporter_unit)
+        unit_match = unit_result["unit_match"]
+        result["value_status"] = result["status"]
+        if not unit_match:
+            result["status"] = "MISMATCH"
+            result["mismatches"] += 1
         result.update(
             {
                 "type": "table",
+                **unit_result,
                 "title": key[0],
                 "occurrence": key[1],
-                "native_unit": native_tables[key].unit,
-                "exporter_unit": str(
-                    (((exported_tables[key].get("axes") or {}).get("z") or {}).get("unit"))
-                    or ""
-                ),
+                "native_unit": native_unit,
+                "exporter_unit": exporter_unit,
             }
         )
         table_results.append(result)
@@ -724,7 +874,10 @@ def compare_exports(
         item["status"] != "MATCH" for item in table_results
     )
     parse_errors = list(native.get("parse_errors") or [])
-    passed = not any(
+    compared_objects = len(scalar_results) + len(table_results)
+    scalar_unit_mismatches = sum(not item["unit_match"] for item in scalar_results)
+    table_unit_mismatches = sum(not item["unit_match"] for item in table_results)
+    has_failure = any(
         (
             parse_errors,
             missing_scalars,
@@ -735,15 +888,22 @@ def compare_exports(
             table_mismatches,
         )
     )
+    # A matching pair of empty/unrecognized exports must never validate an XDF.
+    status = "FAIL" if has_failure else (
+        "INCONCLUSIVE" if compared_objects == 0 else "PASS"
+    )
 
     return {
         "schema": "kingai.tunerpro-native-display-parity.v1",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "scope": (
-            "Displayed scalar/table/axis values only. This does not prove raw "
-            "addresses, checksums, patches, or unsupported equation semantics."
+            "Displayed scalar/table/axis values and declared scalar/table-cell "
+            "units only. Matching or unspecified unit declarations do not prove "
+            "physical units, raw addresses, checksums, patches, or unsupported "
+            "equation semantics. Unit conversions are not inferred."
         ),
-        "status": "PASS" if passed else "FAIL",
+        "status": status,
+        "validation_errors": ([] if compared_objects else ['No scalar or table objects were compared']),
         "native_metadata": native.get("metadata") or {},
         "exporter_metadata": exported.get("metadata") or {},
         "summary": {
@@ -752,12 +912,19 @@ def compare_exports(
             "exporter_scalars": len(exported_scalars),
             "common_scalars": len(scalar_results),
             "scalar_mismatches": scalar_mismatches,
+            "scalar_unit_mismatches": scalar_unit_mismatches,
             "missing_scalars": len(missing_scalars),
             "extra_scalars": len(extra_scalars),
             "native_tables": len(native_tables),
             "exporter_tables": len(exported_tables),
             "common_tables": len(table_results),
             "table_mismatches": table_mismatches,
+            "table_unit_mismatches": table_unit_mismatches,
+            "compared_objects": compared_objects,
+            "objects_with_unspecified_units": sum(
+                item["unit_status"] == "UNSPECIFIED"
+                for item in scalar_results + table_results
+            ),
             "missing_tables": len(missing_tables),
             "extra_tables": len(extra_tables),
         },
@@ -783,9 +950,10 @@ def compare_exports(
     }
 
 
-def write_csv(path: Path, report: dict[str, Any]) -> None:
+def write_csv(path: Path, report: dict[str, Any], input_paths=()) -> None:
+    from tunerpro_xdf.output_safety import open_new_output
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
+    with open_new_output(path, input_paths, encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(
             handle,
             fieldnames=(
@@ -803,6 +971,11 @@ def write_csv(path: Path, report: dict[str, Any]) -> None:
                 "delta",
                 "native_unit",
                 "exporter_unit",
+                "unit_match",
+                "unit_matches",
+                "unit_status",
+                "unit_reason",
+                "value_status",
             ),
         )
         writer.writeheader()
@@ -834,29 +1007,34 @@ def write_csv(path: Path, report: dict[str, Any]) -> None:
 
 def main() -> int:
     args = parse_args()
+    from tunerpro_xdf.output_safety import assert_safe_output_plan, open_new_output
+    csv_path = args.csv
+    if csv_path is None and args.out is not None:
+        csv_path = args.out.with_suffix('.csv')
     try:
+        outputs = [p for p in (args.out, csv_path) if p is not None]
+        if outputs:
+            assert_safe_output_plan(outputs, [args.tunerpro_export, args.exporter_json])
         native = parse_native_export(args.tunerpro_export)
         exported = load_exporter_json(args.exporter_json)
         report = compare_exports(
             native,
             exported,
-            max(0.0, args.absolute_tolerance),
+            args.absolute_tolerance,
         )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    if args.out:
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-    csv_path = args.csv
-    if csv_path is None and args.out is not None:
-        csv_path = args.out.with_suffix(".csv")
-    if csv_path is not None:
-        write_csv(csv_path, report)
+    try:
+        if args.out:
+            with open_new_output(args.out, [args.tunerpro_export, args.exporter_json], encoding='utf-8') as handle:
+                handle.write(json.dumps(report, indent=2, ensure_ascii=False) + '\n')
+        if csv_path is not None:
+            write_csv(csv_path, report, [args.tunerpro_export, args.exporter_json])
+    except (OSError, ValueError) as exc:
+        print(f'ERROR: {exc}', file=sys.stderr)
+        return 2
 
     summary = report["summary"]
     print(
@@ -865,7 +1043,9 @@ def main() -> int:
         f"{summary['common_tables']}/{summary['native_tables']} tables; "
         f"{summary['scalar_mismatches']} scalar and "
         f"{summary['table_mismatches']} table mismatch(es); "
-        f"{summary['native_parse_errors']} native parse error(s)."
+        f"{summary['native_parse_errors']} native parse error(s); "
+        f"{summary['scalar_unit_mismatches'] + summary['table_unit_mismatches']} "
+        f"declared-unit mismatch(es)."
     )
     if args.out:
         print(f"JSON: {args.out.resolve()}")

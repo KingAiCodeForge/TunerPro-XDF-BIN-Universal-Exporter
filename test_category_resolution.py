@@ -59,3 +59,53 @@ def test_direct_membership_remains_supported(tmp_path):
 
     assert exporter.category_member_offset == 0
     assert category == "Knock"
+
+
+def _category_layout(indices, membership_ids):
+    """Use the production parser's category methods with synthetic XDF XML."""
+    import xml.etree.ElementTree as ET
+
+    cats = "".join(f'<CATEGORY index="{i}" name="C{i}" />' for i in indices)
+    objs = "".join(
+        f'<XDFCONSTANT uniqueid="{n+1}"><title>O{n+1}</title>'
+        f'<CATEGORYMEM category="{member_id}" /></XDFCONSTANT>'
+        for n, member_id in enumerate(membership_ids)
+    )
+    root = ET.fromstring(f'<XDFFORMAT><XDFHEADER>{cats}</XDFHEADER>'
+                         f'{objs}</XDFFORMAT>')
+    exporter = UniversalXDFExporter("unused.xdf", "unused.bin")
+    exporter.xdf_root = root
+    exporter._extract_categories()
+    return exporter, root.findall("XDFCONSTANT")
+
+
+def test_many_uncategorized_entries_cannot_flip_one_based_mapping():
+    # A one-based file may contain far more CATEGORYMEM 0 sentinels than
+    # categorized entries. Zero is not evidence for direct-ID membership.
+    exporter, items = _category_layout([0, 1], [0] * 30 + [1, 2])
+    assert exporter.category_member_offset == -1
+    assert exporter._get_category_name(items[0]) == "Uncategorized"
+    assert exporter._get_category_name(items[-2]) == "C0"
+    assert exporter._get_category_name(items[-1]) == "C1"
+
+
+def test_direct_mapping_with_zero_remains_backward_compatible():
+    # If nonzero memberships do not disambiguate, the existing direct-ID
+    # tie break is retained; direct legacy zero can still name category 0.
+    exporter, items = _category_layout([0, 1], [0, 1])
+    assert exporter.category_member_offset == 0
+    assert exporter._get_category_name(items[0]) == "C0"
+    assert exporter._get_category_name(items[1]) == "C1"
+
+
+def test_malformed_memberships_never_name_a_real_category():
+    exporter, items = _category_layout([0, 1], ["garbage", "1.5", "0xGG", "", 1, 2])
+    assert exporter.category_member_offset == -1
+    assert [exporter._get_category_name(item) for item in items[:4]] == ["Uncategorized"] * 4
+    assert [exporter._get_category_name(item) for item in items[-2:]] == ["C0", "C1"]
+
+
+def test_malformed_category_index_is_ignored():
+    exporter, items = _category_layout(["bad", 0], [1])
+    assert exporter.categories == {0: "C0"}
+    assert exporter._get_category_name(items[0]) == "C0"

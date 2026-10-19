@@ -2,12 +2,36 @@
 
 [![Author](https://img.shields.io/badge/Author-Jason%20King-blue)](https://github.com/KingAiCodeForge)
 [![GitHub](https://img.shields.io/badge/GitHub-KingAiCodeForge-181717?logo=github)](https://github.com/KingAiCodeForge)
-[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 
 **XDF + BIN export helper for regression testing and automation**
 
-### Shared exporter package, version 3.7.3
+## Portable automation, ChatGPT handoff and extension
+
+The shared engine is **MIT-licensed**: you may use, modify, refactor and extend
+Jason King's code, retaining the copyright and permission notice in [LICENSE](LICENSE).
+Existing third-party dependencies, references, definitions and firmware retain
+their own licences; this change does not relicense those materials.
+
+The unified CLI/bundle work builds on this single shared Python engine instead
+of copying another parser. A portable source/wheel bundle is being assembled in
+the companion CLI review lane. Running it requires a compatible Python runtime;
+it is not a standalone executable or an installed ChatGPT extension. ChatGPT
+can inspect source, help construct command arguments or use the bundle only
+where that session provides compatible file and Python execution tools. Plain
+chat access does not execute the program, and an NLP front end must translate
+requests into explicit, reviewable arguments rather than bypass validation.
+
+BIN/XDF filenames and family labels are not proof of the ECU's OSID or a matching
+definition: verify identities, layout and expected values before editing. There
+is no automatic log-to-calibration tuning claim, native TunerPro full-function
+parity claim, or vehicle/flash qualification. New functions should have bounded
+inputs, fail-closed tests and an explicit support/limitation record.
+
+### Shared exporter package, version 3.7.5+precision.20261019
+
+This is the private precision-review build matched to Editor 1.3.1+precision.20261019, not a published public release.
 
 The CLI and shared `tunerpro_xdf` modules install together. No other local
 repository or GUI dependency is needed for the command-line exporter:
@@ -25,29 +49,32 @@ successful parsing alone does not establish compatibility with native TunerPro.
 
 The compatibility reference checked on 24 September 2026 is **TunerPro RT
 5.00.10305**, released 21 January 2026 on the [official download page](https://www.tunerpro.net/downloadApp.htm).
-The installed version matches that listing. Its bundled XDF Table Editor help
+The recorded installed build matched that listing at that time. Its bundled XDF Table Editor help
 documents zero-based equation indices and cell, row, column, then global
-equation priority. The exporter follows those rules. Non-default table strides
-and storage flags whose meaning is not established are rejected pending native
-comparison fixtures. The tests establish the documented behavior and bounded
+equation priority. The exporter follows that selector contract. Positive,
+byte-aligned noncontiguous strides permit read-only review, not native-parity
+claims or writes. Negative/unaligned strides and storage flags whose meaning
+is not established are rejected. The tests establish bounded
 file access; they are not a claim of complete native parity or flash safety.
 
 An unresolved linked axis is an explicit error, even where native TunerPro
 displays zero labels. Definitions with that defect, unverified storage flags,
-or non-default table strides may therefore stop exporting in this version.
+or incomplete storage declarations may therefore stop exporting in this version.
 The original XDF and BIN are left untouched; correct the definition or retain
 the older tool for separately reviewed exploratory work.
 
-The packaged release is the read-only exporter core. The GUI, BMW converter
-and historical collection/organizer scripts are separate repository tools and
-are not included in the wheel or covered by this release's validation.
-The project is licensed under the **MIT License**, allowing free personal and commercial use,
-modification and redistribution subject to retaining the copyright and licence notice.
-ECU calibration, checksum, flashing and vehicle safety still require separate validation.
+The wheel contains the read-only exporter core, shared `tunerpro_xdf` modules,
+BMW container converter and saved-native-text parity helper. The GUI and
+historical collection/organizer scripts remain separate repository tools.
+Installing the wheel does not install PySide6 or validate the GUI.
+At the owner's explicit request, this Exporter review now uses the standard
+**MIT licence**. The earlier custom commercial-use restriction is removed for
+this project's code; dependency and input-data licences are unchanged.
 
 Portable tests use synthetic data. Optional local compatibility fixtures are
-selected explicitly with `KINGAI_TEST_MS42_XDF`, `KINGAI_TEST_MS42_NATIVE_EXPORT`
-and `KINGAI_TEST_MS41_DEFINITIONS`; they are skipped when not supplied. Private
+selected with `KINGAI_MS42_FIXTURE_ROOT` (containing `xdfs/` and `docs/`),
+`KINGAI_BMW_DEFINITION_ROOT` (MS41 definitions) and `KINGAI_SPDATEN_ROOT`
+(containing `MDS450/`); tests skip when the exact inputs are absent. Private
 firmware, native captures and generated diagnostics are not distributed.
 
 ```console
@@ -55,6 +82,46 @@ python -m pip install ".[test]" build
 python -m pytest
 python -m build
 ```
+
+Export destinations must be new files. Input aliases, existing reports and
+colliding derived sidecars are rejected before export; exclusive creation also
+protects an existing file created after preflight. This is not a multi-file
+transaction: interruption can leave partial newly created outputs. Original
+inputs are never intentionally rewritten. Native-text parity requires at least
+one compared object, matching units and complete evidence; empty comparisons
+are `INCONCLUSIVE`, not `PASS`. The default numeric tolerance includes half a
+native display unit at its printed precision, plus `1e-12`, with an optional
+finite, nonnegative absolute floor. Neither a uniform nor an all-zero table
+alone proves that the definition is wrong.
+
+The `tunerpro-native-parity` installed command compares saved native text with
+exporter JSON. Unit comparisons preserve case (`mA` is not `MA`), normalize only
+whitespace, and do not infer aliases or temperature conversions. Numeric and
+declared-unit verdicts are reported separately in JSON and CSV. Two missing unit
+declarations are marked `UNSPECIFIED`, not physically verified. Ragged matrices
+are mismatches rather than truncated comparisons. Existing `unit_match` fields
+remain available for consumers of the earlier report schema.
+
+See [the integration audit](docs/output-preservation-audit-20261014.md) for
+review decisions and known real-definition failures. Native TunerPro parity,
+ECU identity, editing safety and vehicle safety are not certified by CLI tests.
+
+With `--diagnostics`, a failed input validation or XDF parse now writes a
+`report_kind: blocked_input` report when the destination is safe and writable.
+It contains captured errors and report-time SHA-256 identities, grades zero
+objects and exits 1. Its null `refuted_count` means unassessed, not zero defects.
+Successful parsing uses `report_kind: body_diagnostics`; as before, exit 0 means
+that report was generated, not that its grade is clean. Parity rejects malformed
+table metadata and ragged rows rather than comparing a truncated subset.
+
+This unified review retains the blocked-input/output-preservation repairs from
+`240d2e0`, the case-sensitive declared-unit parity changes from `679d76ee`, and
+the bounded reciprocal inverse introduced in `ec1315b`'s equation-engine lane.
+The shared `inverse_reciprocal` API accepts a proven nonzero constant divided by
+a nonzero multiple of `X`; it does not solve arbitrary nonlinear equations or
+shifted denominators. The CLI editor must still enforce raw-storage bounds and
+forward-conversion/readback checks before publishing an edited BIN. This
+consolidation is not a claim of complete TunerPro function or hardware parity.
 
 A powerful Python tool that exports ECU calibration data from TunerPro XDF definition files combined with matching BIN firmware files to multiple formats: TXT, JSON, Markdown, and CSV.
 
@@ -566,7 +633,7 @@ ERROR: Address 0x90000 out of range for 512KB BIN file
 
 ### 🔄 FIXED in v3.3.0 & v3.4.0
 
-The following is historical implementation information. Version 3.7.2 uses
+The following is historical implementation information. The current package uses
 the bounded interpreter described above and does not invent values for missing
 variables or convert malformed equations into different expressions.
 
@@ -624,7 +691,7 @@ Some older XDF files use non-standard formats:
 | Format Issue | Status | Workaround |
 |--------------|--------|------------|
 | No `<XDFHEADER>` section | ⚠️ Partial | Uses filename as definition name |
-| `mmedtypeflags` instead of `mmedaddress` | ✅ Handled | Auto-detected and parsed |
+| Explicit `mmedtypeflags` | Bounded support | Known storage flags only; never a substitute for `mmedaddress` |
 | Negative BASEOFFSET values | ✅ Fixed | Now handles subtract flag properly |
 | HTML entities in descriptions | ✅ Fixed | Decoded automatically |
 | Row-major vs column-major tables | ⚠️ Check | May need manual verification |
@@ -635,7 +702,7 @@ Some older XDF files use non-standard formats:
 
 ```
 TunerPro-XDF-BIN-Universal-Exporter/
-├── tunerpro_exporter.py   # Main CLI exporter (v3.7.3)
+├── tunerpro_exporter.py   # Main CLI exporter (version matches pyproject.toml)
 ├── tunerpro_xdf/          # Shared addressing, values and bounded equations
 ├── pyproject.toml        # Package and command-line entry point
 ├── exporter_gui.py        # PySide6 Qt GUI frontend (v3.2.0)
@@ -645,7 +712,7 @@ TunerPro-XDF-BIN-Universal-Exporter/
 ├── launch_gui.bat         # Quick GUI launcher
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This documentation
-├── LICENSE                # MIT License
+├── LICENSE                # MIT licence
 └── .gitignore             # Git ignore rules
 ```
 
@@ -735,11 +802,11 @@ This project is open for contributions from the PCMHacking community!
 
 ## 📜 License
 
-Copyright (c) 2025 KingAi PTY LTD - Jason King
+Copyright (c) 2025-2026 KingAI Pty Ltd - Jason King
 
-This project is licensed under the MIT License. Personal and commercial use,
-modification and distribution are permitted subject to its notice requirements.
-This is an ECU file inspection and export tool, not a validated ECU flashing or safety system.
+This project's code uses the [MIT licence](LICENSE), including commercial use,
+modification and redistribution subject to retaining its notice. Third-party
+software and ECU definition/firmware inputs retain their own applicable terms.
 
 ---
 
