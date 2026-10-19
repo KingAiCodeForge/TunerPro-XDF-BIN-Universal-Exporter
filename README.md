@@ -31,7 +31,13 @@ inputs, fail-closed tests and an explicit support/limitation record.
 
 ### Shared exporter package, version 3.7.5+precision.20261019
 
-This is the private precision-review build matched to Editor 1.3.1+precision.20261019, not a published public release.
+This branch is the public release candidate for the precision-reviewed 3.7.5
+source matched to Editor 1.3.1+precision.20261019. The imported runtime and
+test blobs are byte-identical to the privately executed source that recorded
+607 exporter passes, 4 expected fixture skips and 18 subtests, plus 30 focused
+precision/CLI passes. Those retained results do not substitute for a fresh
+public CI run, native TunerPro comparison, missing real-corpus fixtures or
+vehicle/flash validation.
 
 The CLI and shared `tunerpro_xdf` modules install together. No other local
 repository or GUI dependency is needed for the command-line exporter:
