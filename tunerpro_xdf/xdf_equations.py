@@ -21,7 +21,7 @@ import re
 import tokenize
 
 
-__all__ = ["EquationError", "evaluate_equation", "inverse_affine"]
+__all__ = ["EquationError", "evaluate_equation", "inverse_affine", "inverse_reciprocal"]
 
 _MAX_LENGTH = 4096
 _MAX_TOKENS = 512
@@ -346,3 +346,52 @@ def inverse_affine(equation: str, real_value: int | float, variables: Mapping[st
         raise
     except _FAILURES as exc:
         raise EquationError(f"Invalid affine inverse: {exc}") from exc
+
+
+def inverse_reciprocal(equation: str, real_value: int | float,
+                       variables: Mapping[str, int | float]) -> int:
+    """Invert the narrowly proven reciprocal form K/X.
+
+    Algebraically redundant affine terms such as
+    (0*X-A)/(0-(B*X)) are accepted only because numerator and denominator are
+    proved independently with the same bounded affine analyser used by
+    inverse_affine.
+
+    The outer parsed node must be division; the numerator must reduce to a
+    constant; the denominator must reduce to a*X with zero intercept; and the
+    numerator, denominator coefficient and engineering value must be nonzero.
+
+    This is not a generic nonlinear solver. K/(X+C), X/(K*X), polynomials,
+    functions and sampling-based inverses remain unsupported and fail closed.
+    """
+    try:
+        real_value = _checked(real_value)
+        if real_value == 0:
+            raise EquationError("Reciprocal inverse is undefined at engineering zero")
+        root = _parse(equation)
+        if not isinstance(root, ast.BinOp) or not isinstance(root.op, ast.Div):
+            raise EquationError("Expression is not a proven reciprocal division")
+
+        num_a, numerator = _affine(root.left, _variables(variables))
+        den_a, den_b = _affine(root.right, _variables(variables))
+        if num_a != 0:
+            raise EquationError("Reciprocal numerator must be constant in X")
+        if numerator == 0:
+            raise EquationError("Reciprocal numerator must be nonzero")
+        if den_a == 0:
+            raise EquationError("Reciprocal denominator coefficient of X must be nonzero")
+        if den_b != 0:
+            raise EquationError("Reciprocal denominator must have zero intercept")
+
+        denominator = _fraction_binary(ast.Mult, Fraction(real_value), den_a)
+        if denominator == 0:
+            raise EquationError("Reciprocal inverse denominator is zero")
+        raw = _fraction_binary(ast.Div, numerator, denominator)
+        rounded = _checked(round(raw))
+        if rounded == 0:
+            raise EquationError("Reciprocal inverse rounds to undefined raw zero")
+        return rounded
+    except EquationError:
+        raise
+    except _FAILURES as exc:
+        raise EquationError(f"Invalid reciprocal inverse: {exc}") from exc

@@ -53,6 +53,12 @@ class TableLayout:
         # Read-only review support must not silently expand the edit contract.
         if self.major_stride < 0 or self.minor_stride < 0:
             raise ValueError("Negative-stride XDF writes require native TunerPro parity")
+        # For a single row, cell_address interprets a lone major stride as
+        # the distance between cells. Even a value equal to the nominal row
+        # width is therefore strided storage, not the packed row pitch below.
+        if (self.rows == 1 and self.cols > 1 and self.minor_stride == 0
+                and self.major_stride > self.size_bits):
+            raise ValueError("Non-contiguous singleton XDF writes require native TunerPro parity")
         if 0 < self.minor_stride < self.size_bits:
             raise ValueError("Overlapping XDF table cells cannot be edited independently")
         row_bits = self.cols * (self.minor_stride or self.size_bits)
