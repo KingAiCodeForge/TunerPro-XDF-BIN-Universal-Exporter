@@ -7,7 +7,7 @@
 
 **XDF + BIN export helper for regression testing and automation**
 
-### Shared exporter package, version 3.7.2
+### Shared exporter package, version 3.7.3
 
 The CLI and shared `tunerpro_xdf` modules install together. No other local
 repository or GUI dependency is needed for the command-line exporter:
@@ -635,7 +635,7 @@ Some older XDF files use non-standard formats:
 
 ```
 TunerPro-XDF-BIN-Universal-Exporter/
-├── tunerpro_exporter.py   # Main CLI exporter (v3.7.2)
+├── tunerpro_exporter.py   # Main CLI exporter (v3.7.3)
 ├── tunerpro_xdf/          # Shared addressing, values and bounded equations
 ├── pyproject.toml        # Package and command-line entry point
 ├── exporter_gui.py        # PySide6 Qt GUI frontend (v3.2.0)
