@@ -11,14 +11,12 @@
  Company:      KingAi PTY LTD
  Website:      kingai.com.au
 
- Enhancements v3.2:
+ Source GUI features:
   - Drag & drop support for XDF and BIN files
   - Recent files history (last 10 XDF/BIN pairs)
-  - Batch processing mode (multiple BIN files with same XDF)
-  - Category filter (export specific categories only)
   - Auto-detect matching BIN when XDF selected
   - Quick access buttons for TunerPro Files directory
-  - Preview mode (show element count before export)
+  - Element counts after parsing a single XDF/BIN pair
   - CSV export format added
   - Open output folder after export option
   - Keyboard shortcuts
@@ -74,15 +72,15 @@ except ImportError:
         sys.exit(1)
 
 
-__version__ = "3.2.0"
+__version__ = "3.7.5rc1"
 __author__ = "Jason King"
 __author_github__ = "KingAiCodeForge"
 __author_alias__ = "kingaustraliagg"  # PCMHacking forum username
 
 # Default paths for quick access (fallback list if user hasn't set custom path)
 DEFAULT_TUNERPRO_PATHS = [
-    Path(r"E:\Users\jason\Documents\TunerPro Files"),
-    Path(r"C:\Users\jason\OneDrive\Documents\TunerPro Files"),
+    Path(os.environ["KINGAI_TUNERPRO_FILES"]).expanduser()
+    if os.environ.get("KINGAI_TUNERPRO_FILES") else Path.home() / "Documents" / "TunerPro Files",
     Path.home() / "Documents" / "TunerPro Files",
 ]
 
@@ -118,22 +116,11 @@ class ExportWorker(QThread):
             exporter = UniversalXDFExporter(self.xdf_path, self.bin_path)
             
             if self.skip_validation:
-                self.progress.emit("Skipping validation (forced mode)...")
-                # Still need to read the binary file, just don't validate size
-                try:
-                    with open(self.bin_path, 'rb') as f:
-                        exporter.bin_data = f.read()
-                        exporter.bin_size = len(exporter.bin_data)
-                    import hashlib
-                    exporter.bin_md5 = hashlib.md5(exporter.bin_data).hexdigest()
-                except Exception as e:
-                    self.finished.emit(False, f"Could not read binary file!\n\nError: {e}", [])
-                    return
-            else:
-                self.progress.emit("Validating binary file...")
-                if not exporter.validate_bin_file():
-                    self.finished.emit(False, f"Binary validation failed!\n\nCould not read: {self.bin_path}", [])
-                    return
+                self.progress.emit("Legacy size override is unnecessary; validating inputs.")
+            self.progress.emit("Validating binary file...")
+            if not exporter.validate_bin_file():
+                self.finished.emit(False, f"Binary validation failed!\n\nCould not read: {self.bin_path}", [])
+                return
             
             self.progress.emit("Parsing XDF structure...")
             if not exporter.parse_xdf():
@@ -148,29 +135,34 @@ class ExportWorker(QThread):
             )
             
             self.output_files = []
-            
+
+            # Check every requested GUI destination together. In particular,
+            # changing the suffix can make an output equal an input path.
+            output_base = Path(self.output_path)
+            destinations = []
             for fmt in self.formats:
-                self.progress.emit(f"Exporting to {fmt.upper()} format...")
-                
-                # Determine output filename
-                output_base = Path(self.output_path)
-                if output_base.suffix.lower() in ['.txt', '.json', '.md', '.text', '.test', '.csv']:
-                    output_file = str(output_base.with_suffix(f'.{fmt}'))
+                if fmt not in ('txt', 'text', 'test', 'json', 'md', 'csv'):
+                    raise ValueError(f"Unsupported export format: {fmt}")
+                if output_base.suffix.lower() in ('.txt', '.json', '.md', '.text', '.test', '.csv'):
+                    destinations.append(str(output_base.with_suffix(f'.{fmt}')))
                 else:
-                    output_file = f"{self.output_path}.{fmt}"
-                
-                if fmt in ['txt', 'text', 'test']:
-                    exporter.export_to_text(output_file)
+                    destinations.append(f"{self.output_path}.{fmt}")
+            exporter._require_safe_outputs(destinations)
+
+            for fmt, output_file in zip(self.formats, destinations):
+                self.progress.emit(f"Exporting to {fmt.upper()} format...")
+                if fmt in ('txt', 'text', 'test'):
+                    ok = exporter.export_to_text(output_file)
                 elif fmt == 'json':
-                    exporter.export_to_json(output_file)
+                    ok = exporter.export_to_json(output_file)
                 elif fmt == 'md':
-                    exporter.export_to_markdown(output_file)
-                elif fmt == 'csv':
-                    # Export to CSV format
-                    self._export_csv(exporter, output_file)
-                
+                    ok = exporter.export_to_markdown(output_file)
+                else:
+                    ok = exporter.export_to_csv(output_file)
+                if not ok:
+                    raise RuntimeError(f"Export to {fmt.upper()} failed: {output_file}")
                 self.output_files.append(output_file)
-            
+
             files_str = ", ".join([Path(f).name for f in self.output_files])
             self.finished.emit(True, f"Export complete!\n\nCreated: {files_str}", self.output_files)
         
@@ -178,44 +170,9 @@ class ExportWorker(QThread):
             self.finished.emit(False, f"Export failed!\n\nError: {str(e)}", [])
     
     def _export_csv(self, exporter, output_file: str):
-        """Export to CSV format for spreadsheet analysis"""
-        import csv
-        with open(output_file, 'w', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Type', 'Category', 'Title', 'Address', 'Value', 'Units', 'Description'])
-            
-            for const in exporter.elements['constants']:
-                writer.writerow([
-                    'Constant',
-                    const.get('category', 'Uncategorized'),
-                    const.get('title', 'Unknown'),
-                    f"0x{const.get('address', 0):X}",
-                    const.get('value', ''),
-                    const.get('units', ''),
-                    const.get('description', '')[:100]
-                ])
-            
-            for flag in exporter.elements['flags']:
-                writer.writerow([
-                    'Flag',
-                    flag.get('category', 'Uncategorized'),
-                    flag.get('title', 'Unknown'),
-                    f"0x{flag.get('address', 0):X}",
-                    'Set' if flag.get('value', False) else 'Not Set',
-                    '',
-                    flag.get('description', '')[:100]
-                ])
-            
-            for table in exporter.elements['tables']:
-                writer.writerow([
-                    'Table',
-                    table.get('category', 'Uncategorized'),
-                    table.get('title', 'Unknown'),
-                    f"0x{table.get('address', 0):X}",
-                    f"{table.get('rows', 0)}x{table.get('cols', 0)}",
-                    table.get('units', ''),
-                    table.get('description', '')[:100]
-                ])
+        """Compatibility wrapper for the core, guarded CSV writer."""
+        if not exporter.export_to_csv(output_file):
+            raise RuntimeError(f"CSV export failed: {output_file}")
 
 
 class TunerProExporterGUI(QMainWindow):
@@ -346,7 +303,7 @@ class TunerProExporterGUI(QMainWindow):
         subtitle.setStyleSheet("color: #b0bec5;")
         layout.addWidget(subtitle)
         
-        author = QLabel("by Jason King (kingaustraliagg) • kingai.com.au")
+        author = QLabel("by Jason King (kingaustraliagg) ΓÇó kingai.com.au")
         author.setFont(QFont("Segoe UI", 9))
         author.setAlignment(Qt.AlignCenter)
         author.setStyleSheet("color: #78909c;")
@@ -356,7 +313,7 @@ class TunerProExporterGUI(QMainWindow):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
-        settings_btn = QPushButton("⚙ Settings")
+        settings_btn = QPushButton("ΓÜÖ Settings")
         settings_btn.setFixedWidth(100)
         settings_btn.setStyleSheet("""
             QPushButton {
@@ -373,7 +330,7 @@ class TunerProExporterGUI(QMainWindow):
         settings_btn.clicked.connect(self._show_settings_dialog)
         btn_layout.addWidget(settings_btn)
         
-        quick_btn = QPushButton("📁 Quick Open")
+        quick_btn = QPushButton("≡ƒôü Quick Open")
         quick_btn.setFixedWidth(100)
         quick_btn.setStyleSheet("""
             QPushButton {
@@ -498,23 +455,11 @@ class TunerProExporterGUI(QMainWindow):
         group = QGroupBox("Options")
         layout = QHBoxLayout(group)
         
-        # Skip validation checkbox
-        self.skip_validation_cb = QCheckBox("Skip Validation")
-        self.skip_validation_cb.setToolTip(
-            "Skip BIN file size validation.\n\n"
-            "Use this when:\n"
-            "• XDF doesn't match BIN size (WIP definitions)\n"
-            "• Testing experimental XDF files\n"
-            "• Working with non-standard BIN sizes\n\n"
-            "⚠️ Data may be incorrect if addresses don't align!"
-        )
-        
         # Open output folder after export
         self.open_folder_cb = QCheckBox("Open folder after export")
         self.open_folder_cb.setToolTip("Open the output folder when export completes")
         self.open_folder_cb.setChecked(True)
         
-        layout.addWidget(self.skip_validation_cb)
         layout.addWidget(self.open_folder_cb)
         layout.addStretch()
         
@@ -724,8 +669,7 @@ class TunerProExporterGUI(QMainWindow):
         self.log(f"Formats: {', '.join(formats)}")
         
         # Start worker thread
-        skip_validation = self.skip_validation_cb.isChecked()
-        self.worker = ExportWorker(xdf_path, bin_path, output_path, formats, skip_validation)
+        self.worker = ExportWorker(xdf_path, bin_path, output_path, formats)
         self.worker.progress.connect(self.on_progress)
         self.worker.finished.connect(self.on_finished)
         self.worker.element_count.connect(self.on_element_count)
@@ -755,22 +699,15 @@ class TunerProExporterGUI(QMainWindow):
             
             self.status_bar.showMessage("Export complete!")
             self.log("=" * 50)
-            self.log("✓ Export completed successfully!")
+            self.log("Γ£ô Export completed successfully!")
             
-            # Ask to open output folder
-            reply = QMessageBox.question(
-                self,
-                "Export Complete",
-                f"{message}\n\nOpen output folder?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-            if reply == QMessageBox.Yes:
+            QMessageBox.information(self, "Export Complete", message)
+            if self.open_folder_cb.isChecked():
                 self._open_output_folder()
         else:
             self.status_bar.showMessage("Export failed!")
             self.log("=" * 50)
-            self.log("✗ Export failed!")
+            self.log("Γ£ù Export failed!")
             self.log(message)
             QMessageBox.critical(self, "Export Failed", message)
     
@@ -986,7 +923,7 @@ class TunerProExporterGUI(QMainWindow):
                 self,
                 "No Default Folder",
                 "No TunerPro folder found.\n\n"
-                "Click the ⚙ Settings button to configure your\n"
+                "Click the ΓÜÖ Settings button to configure your\n"
                 "default TunerPro Files directory."
             )
     

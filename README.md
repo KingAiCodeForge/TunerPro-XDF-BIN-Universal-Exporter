@@ -29,15 +29,15 @@ is no automatic log-to-calibration tuning claim, native TunerPro full-function
 parity claim, or vehicle/flash qualification. New functions should have bounded
 inputs, fail-closed tests and an explicit support/limitation record.
 
-### Shared exporter package, version 3.7.5+precision.20261019
+### Shared exporter package, version 3.7.5rc1
 
-This branch is the public release candidate for the precision-reviewed 3.7.5
-source matched to Editor 1.3.1+precision.20261019. The imported runtime and
-test blobs are byte-identical to the privately executed source that recorded
-607 exporter passes, 4 expected fixture skips and 18 subtests, plus 30 focused
-precision/CLI passes. Those retained results do not substitute for a fresh
-public CI run, native TunerPro comparison, missing real-corpus fixtures or
-vehicle/flash validation.
+This is an experimental prerelease of the precision-reviewed 3.7.5 engine,
+paired with Editor 1.2.0rc1. It also restores the GUI output-plan safety fix,
+repairs version-independent wheel discovery and makes the public collection
+utilities portable and non-destructive by default. See [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md)
+for branch provenance, executed checks, script scope and the unavailable corpus.
+Native TunerPro comparison, the missing real-definition fixtures and hardware
+qualification remain open; passing synthetic tests does not replace them.
 
 The CLI and shared `tunerpro_xdf` modules install together. No other local
 repository or GUI dependency is needed for the command-line exporter:

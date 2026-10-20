@@ -1,29 +1,17 @@
 @echo off
-REM ================================================================================
-REM  KingAI TunerPro Exporter - GUI Launcher
-REM  Author: KingAI / Jason King
-REM  Repository: https://github.com/KingAiCodeForge/kingai-tunerpro-exporter
-REM ================================================================================
-
-title KingAI TunerPro Exporter - GUI
-
-REM Check for Python
-python --version >nul 2>&1
+setlocal
+set "PYTHON_CMD=python"
+if exist "%~dp0.venv\Scripts\python.exe" set "PYTHON_CMD=%~dp0.venv\Scripts\python.exe"
+if defined KINGAI_PYTHON set "PYTHON_CMD=%KINGAI_PYTHON%"
+"%PYTHON_CMD%" -c "import sys; raise SystemExit(sys.version_info < (3,10))" >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Python is not installed or not in PATH!
-    echo Please run install.bat first or install Python 3.8+
-    pause
-    exit /b 1
+  echo [ERROR] Python 3.10+ is required. Set KINGAI_PYTHON to its executable path.
+  exit /b 1
 )
-
-REM Check for PySide6
-python -c "import PySide6" >nul 2>&1
+"%PYTHON_CMD%" -c "import PySide6" >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] PySide6 is not installed!
-    echo Installing now...
-    pip install PySide6
+  echo [ERROR] PySide6 is missing. Run install.bat --gui in a clean project copy.
+  exit /b 1
 )
-
-REM Launch the GUI
-echo Starting KingAI TunerPro Exporter GUI...
-python "%~dp0exporter_gui.py"
+"%PYTHON_CMD%" "%~dp0exporter_gui.py" %*
+exit /b %errorlevel%

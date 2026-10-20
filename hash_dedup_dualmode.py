@@ -1,165 +1,86 @@
 #!/usr/bin/env python3
+"""Read-only full-SHA256 analysis for explicit BIN collections.
+
+No files are copied, moved or removed. Filename hints do not establish ECU
+identity. Pass source and collection directories explicitly on every machine.
 """
-Hash-based dedup ANALYZER — DRY RUN, no files are copied.
-Shows every bin in a source folder that is NOT already in all_ms42_bins / all_ms43_bins.
-Review the output, then copy manually.
+import argparse
+import hashlib
+from pathlib import Path
+from public_collection_cli import write_report
 
-Usage:
-    python hash_dedup_dualmode.py                         # defaults
-    python hash_dedup_dualmode.py SOURCE_DIR              # override source
-    python hash_dedup_dualmode.py SOURCE --ms42 DIR42 --ms43 DIR43
-    python hash_dedup_dualmode.py SOURCE -o report.txt    # write output to file
-"""
-import os, hashlib, sys, argparse, datetime
 
-def parse_args():
-    p = argparse.ArgumentParser(
-        description="Hash-based dedup analyzer for BMW MS4x bin collections (DRY RUN).",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""Examples:
-  python hash_dedup_dualmode.py
-  python hash_dedup_dualmode.py "A:\\repos\\Dualmode Switch"
-  python hash_dedup_dualmode.py "A:\\repos\\Dualmode Switch" -o dedup_report.txt
-  python hash_dedup_dualmode.py "E:\\bins" --ms42 A:\\repos\\1bmw_ms42_tuning_guides\\all_ms42_bins""",
-    )
-    p.add_argument("source", nargs="?", default=r"A:\repos\Dualmode Switch",
-                   help="Source folder to scan for .bin files (default: Dualmode Switch)")
-    p.add_argument("--ms42", default=r"A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins",
-                   help="Path to all_ms42_bins collection")
-    p.add_argument("--ms43", default=r"A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins",
-                   help="Path to all_ms43_bins collection")
-    p.add_argument("-o", "--output", default=None,
-                   help="Write report to this file (in addition to stdout)")
-    return p.parse_args()
+def sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
-args = parse_args()
-
-MS42_DIR      = args.ms42
-MS43_DIR      = args.ms43
-DUALMODE_ROOT = args.source
-OUTPUT_FILE   = args.output
-
-# Simple tee helper: print to stdout and optionally to file
-_out_fh = None
-if OUTPUT_FILE:
-    os.makedirs(os.path.dirname(os.path.abspath(OUTPUT_FILE)), exist_ok=True)
-    _out_fh = open(OUTPUT_FILE, "w", encoding="utf-8")
-
-def tprint(msg=""):
-    """Print to stdout and to the output file (if specified)."""
-    print(msg)
-    if _out_fh:
-        _out_fh.write(msg + "\n")
 
 def sha16(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        while chunk := f.read(65536):
-            h.update(chunk)
-    return h.hexdigest()[:16]
+    """Legacy function name; returns complete SHA256 for reliable identity."""
+    return sha256(path)
+
 
 def build_hash_map(folder):
-    """Returns {hash: filename} for all files in a flat folder."""
-    hmap = {}
-    for f in os.listdir(folder):
-        fp = os.path.join(folder, f)
-        if os.path.isfile(fp):
-            try:
-                hmap[sha16(fp)] = f
-            except Exception as e:
-                print(f"  WARN: could not hash {f}: {e}")
-    return hmap
+    result = {}
+    for path in sorted(Path(folder).iterdir()):
+        if path.is_file() and not path.is_symlink():
+            result.setdefault(sha256(path), []).append(path.name)
+    return result
+
 
 def route(fname_lower, path_lower):
-    if 'ms_42' in path_lower or '0110c6' in fname_lower or '0110ad' in fname_lower or 'ms42' in fname_lower:
-        return 'ms42'
-    if 'ms_43' in path_lower or '430' in fname_lower or 'm54b' in fname_lower or 'ms43' in fname_lower:
-        return 'ms43'
-    if r'\ms_42' in path_lower:
-        return 'ms42'
-    if r'\ms_43' in path_lower:
-        return 'ms43'
-    return 'ms43'
+    text = (fname_lower + " " + path_lower).lower()
+    if any(hint in text for hint in ("ms_42", "0110c6", "0110ad", "ms42")):
+        return "ms42 filename hint"
+    if any(hint in text for hint in ("ms_43", "430", "m54b", "ms43")):
+        return "ms43 filename hint"
+    return "unclassified"
 
-# ── Build existing hash sets ─────────────────────────────────────────────────
-tprint("Hashing existing collections...")
-map42 = build_hash_map(MS42_DIR)
-map43 = build_hash_map(MS43_DIR)
-ex_all = set(map42) | set(map43)
-tprint(f"  MS42: {len(map42)} unique files")
-tprint(f"  MS43: {len(map43)} unique files")
-tprint(f"  Combined: {len(ex_all)} unique hashes")
-tprint(f"  Source:   {DUALMODE_ROOT}")
-tprint()
 
-# ── Walk Dualmode and find truly new bins ────────────────────────────────────
-new_ms42 = []   # (rel_path, fname, hash, size_bytes)
-new_ms43 = []
-already_seen_new = {}   # hash -> first rel path seen within Dualmode itself
-skipped_existing       = 0
-skipped_internal_dupe  = 0
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path, help="Source directory to scan recursively")
+    parser.add_argument("--collection", action="append", type=Path, default=[],
+                        help="Existing collection directory; repeat as needed")
+    parser.add_argument("--ms42", type=Path, help="Explicit legacy MS42 collection path")
+    parser.add_argument("--ms43", type=Path, help="Explicit legacy MS43 collection path")
+    parser.add_argument("-o", "--output", type=Path, help="New report; existing files refused")
+    args = parser.parse_args(argv)
+    collections = args.collection + [p for p in (args.ms42, args.ms43) if p is not None]
+    if not collections:
+        parser.error("Provide at least one --collection, --ms42 or --ms43 directory")
+    for folder in [args.source] + collections:
+        if not folder.is_dir():
+            parser.error(f"Directory not found: {folder}")
+    if args.output and (args.output.exists() or args.output.is_symlink()):
+        parser.error(f"Refusing to overwrite report: {args.output}")
+    try:
+        known = set()
+        for folder in collections:
+            known.update(build_hash_map(folder))
+        lines = ["Read-only duplicate analysis (filename hints do not qualify ECU identity)"]
+        seen = {}
+        counts = {"existing": 0, "source duplicate": 0, "new": 0}
+        for path in sorted(args.source.rglob("*")):
+            if not path.is_file() or path.is_symlink() or path.suffix.lower() != ".bin":
+                continue
+            digest = sha256(path)
+            status = "existing" if digest in known else "source duplicate" if digest in seen else "new"
+            counts[status] += 1
+            relative = path.relative_to(args.source)
+            lines.append(f"{status}\t{digest}\t{path.stat().st_size}\t{relative}\t{route(path.name, str(relative.parent))}")
+            seen.setdefault(digest, relative)
+        lines.append("Summary: " + ", ".join(f"{key}={value}" for key, value in counts.items()))
+        report = "\n".join(lines) + "\n"
+        write_report(args.output, report)
+        print(report, end="")
+        return 0
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
 
-for root, dirs, files in os.walk(DUALMODE_ROOT):
-    for fname in files:
-        if not fname.lower().endswith('.bin'):
-            continue
-        fp  = os.path.join(root, fname)
-        rel = os.path.relpath(fp, DUALMODE_ROOT)
-        try:
-            h  = sha16(fp)
-            sz = os.path.getsize(fp)
-        except Exception as e:
-            tprint(f"  WARN: {rel}: {e}")
-            continue
 
-        if h in ex_all:
-            skipped_existing += 1
-            continue
-
-        if h in already_seen_new:
-            skipped_internal_dupe += 1
-            continue
-
-        already_seen_new[h] = rel
-        r_type = route(fname.lower(), root.lower())
-        if r_type == 'ms42':
-            new_ms42.append((rel, fname, h, sz))
-        else:
-            new_ms43.append((rel, fname, h, sz))
-
-# ── Report ───────────────────────────────────────────────────────────────────
-tprint(f"{'='*72}")
-tprint(f"DEDUP ANALYSIS — NEW UNIQUE BINS  (not in existing collections)")
-tprint(f"  Source: {DUALMODE_ROOT}")
-tprint(f"  Date:   {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-tprint(f"{'='*72}")
-
-if new_ms42:
-    tprint(f"\n--- NEW MS42 ({len(new_ms42)}) ---")
-    for rel, fname, h, sz in sorted(new_ms42):
-        tprint(f"  [{h}]  {sz//1024:>4} KB   {rel}")
-else:
-    tprint("\n--- NEW MS42: 0 ---")
-
-if new_ms43:
-    tprint(f"\n--- NEW MS43 ({len(new_ms43)}) ---")
-    for rel, fname, h, sz in sorted(new_ms43):
-        tprint(f"  [{h}]  {sz//1024:>4} KB   {rel}")
-else:
-    tprint("\n--- NEW MS43: 0 ---")
-
-tprint(f"\n{'='*72}")
-tprint(f"SUMMARY")
-tprint(f"  New unique MS42:              {len(new_ms42)}")
-tprint(f"  New unique MS43:              {len(new_ms43)}")
-tprint(f"  Skipped (already collected):  {skipped_existing}")
-tprint(f"  Skipped (internal dupes):     {skipped_internal_dupe}")
-tprint(f"  Total bins scanned:           {skipped_existing + skipped_internal_dupe + len(new_ms42) + len(new_ms43)}")
-tprint(f"{'='*72}")
-
-if not new_ms42 and not new_ms43:
-    tprint("\nAll source bins are already present in the collections. Nothing to copy.")
-
-if _out_fh:
-    _out_fh.close()
-    print(f"\nReport written to: {os.path.abspath(OUTPUT_FILE)}")
+if __name__ == "__main__":
+    raise SystemExit(main())

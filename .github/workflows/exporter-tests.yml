@@ -24,13 +24,18 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: Build and install wheel
         shell: pwsh
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: '1'
         run: |
           python -m pip install build pytest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $wheel = Get-Item dist/kingai_tunerpro_xdf-3.7.2-*.whl
-          python -m pip install --no-index $wheel.FullName
+          $wheels = @(Get-ChildItem -Path dist -Filter 'kingai_tunerpro_xdf-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw "Expected one built wheel; found $($wheels.Count)" }
+          python -m pip install --no-index $wheels[0].FullName
           exit $LASTEXITCODE
       - name: Test installed package away from source
         shell: pwsh
@@ -39,7 +44,12 @@ jobs:
         run: |
           $testRoot = Join-Path $env:RUNNER_TEMP 'exporter-tests'
           New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
-          Copy-Item -Path test_*.py -Destination $testRoot
+          # Keep core runtime imports bound to the installed wheel. Source-only
+          # collection tools and the GUI worker are tested alongside it.
+          Get-ChildItem -File -Filter '*.py' |
+            Where-Object { $_.Name -notin @('tunerpro_exporter.py', 'bmw_0pa_0da_to_bin.py', 'tunerpro_native_export_parity.py') } |
+            Copy-Item -Destination $testRoot
+          Copy-Item -Path *.bat -Destination $testRoot
           Set-Location $testRoot
           python -I -m pytest --import-mode=importlib -q
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

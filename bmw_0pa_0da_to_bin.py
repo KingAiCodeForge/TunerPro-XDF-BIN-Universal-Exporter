@@ -905,22 +905,9 @@ def detect_ecu_type(filepath: str, header: Dict[str, Any]) -> Optional[str]:
 # Known SP-Daten locations
 # ---------------------------------------------------------------------------
 def get_spdaten_paths() -> List[str]:
-    """Return standard BMW Standard Tools / SP-Daten paths."""
-    paths = []
-    known_roots = [
-        r"C:\EC-APPS",
-        r"C:\NFS\data",
-        r"C:\NFS-Backup",
-        r"C:\EDIABAS\Ecu",
-        r"A:\BMW Standard Tools",
-        r"A:\bmw-advanced-tools",
-        r"A:\bmw-advanced-tools-master",
-        r"A:\BMW_ECU_Downloads",
-    ]
-    for p in known_roots:
-        if os.path.isdir(p):
-            paths.append(p)
-    return paths
+    """Return explicitly configured scan roots; never probe workstation drives."""
+    return [str(Path(p).expanduser()) for p in
+            os.environ.get("KINGAI_SPDATEN_PATHS", "").split(os.pathsep) if p]
 
 
 def find_flash_files(
@@ -1239,7 +1226,7 @@ def convert_file(
 
     # Write
     try:
-        with open(out_path, "wb") as f:
+        with open(out_path, "xb") as f:
             f.write(binary)
         result["output"] = out_path
         result["success"] = True
@@ -1548,7 +1535,7 @@ def combine_pa_da(
     try:
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-        with open(out_path, "wb") as file_handle:
+        with open(out_path, "xb") as file_handle:
             file_handle.write(combined)
         result["output"] = out_path
         result["success"] = True
@@ -1578,6 +1565,7 @@ def process_path(
     recursive: bool = True,
     mapped_overlap_policy: str = "error",
     source_region: str = "all",
+    fill_byte: int = 0xFF,
 ) -> List[Dict[str, Any]]:
     """
     Process a file or folder. If folder, recursively find all 0PA/0DA files.
@@ -1592,12 +1580,14 @@ def process_path(
             force_ecu=force_ecu,
             mapped_overlap_policy=mapped_overlap_policy,
             source_region=source_region,
+            fill_byte=fill_byte,
         )
         results.append(r)
     elif os.path.isdir(path):
         files = find_flash_files([path], max_depth=6 if recursive else 0)
         if not files:
             print(f"No .0DA/.0PA files found in: {path}")
+            results.append({"input": path, "success": False, "error": "No input flash packages found"})
         for fp in files:
             r = convert_file(
                 fp,
@@ -1606,10 +1596,12 @@ def process_path(
                 force_ecu=force_ecu,
                 mapped_overlap_policy=mapped_overlap_policy,
                 source_region=source_region,
+                fill_byte=fill_byte,
             )
             results.append(r)
     else:
         print(f"Path not found: {path}")
+        results.append({"input": path, "success": False, "error": "Input path not found"})
 
     return results
 
@@ -1654,7 +1646,9 @@ Outputs are offline analysis views. Conversion success is not flash proof.
     parser.add_argument("--combine", action="store_true",
                         help="Combine one 0PA and one 0DA into an offline analysis view")
     parser.add_argument("--scan", metavar="ECU",
-                        help="Scan standard SP-Daten paths for ECU group (e.g. MDS43, MDS42)")
+                        help="Scan explicit --scan-root / KINGAI_SPDATEN_PATHS roots for ECU group")
+    parser.add_argument("--scan-root", action="append", default=[], metavar="DIRECTORY",
+                        help="SP-Daten scan directory; repeat for multiple roots")
     parser.add_argument(
         "--ecu",
         help="Force ECU type (MDS42, MDS43, MDS450, MDS451, ME72, GD8600, GD8604)",
@@ -1682,6 +1676,12 @@ Outputs are offline analysis views. Conversion success is not flash proof.
     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
 
     args = parser.parse_args()
+    if not 0 <= args.fill <= 255:
+        parser.error("--fill must be a byte from 0 to 255")
+    if args.info and args.combine:
+        parser.error("--info cannot be combined with --combine; inspect each input separately")
+    if args.scan and args.combine:
+        parser.error("--scan and --combine are mutually exclusive")
 
     print(f"BMW SP-Daten 0PA/0DA to .BIN Converter v{VERSION}")
     print(f"{'='*70}")
@@ -1690,10 +1690,14 @@ Outputs are offline analysis views. Conversion success is not flash proof.
 
     # --scan mode: find and convert all files for an ECU group
     if args.scan:
-        sp_paths = get_spdaten_paths()
+        sp_paths = args.scan_root or get_spdaten_paths()
+        if not sp_paths or any(not Path(p).is_dir() for p in sp_paths):
+            parser.error("--scan requires existing --scan-root directories or KINGAI_SPDATEN_PATHS")
         print(f"Scanning {len(sp_paths)} SP-Daten locations for {args.scan}...")
         files = find_flash_files(sp_paths, ecu_filter=args.scan)
         print(f"Found {len(files)} flash file(s)")
+        if not files:
+            return 1
         for fp in files:
             r = convert_file(
                 fp,
@@ -1702,6 +1706,7 @@ Outputs are offline analysis views. Conversion success is not flash proof.
                 force_ecu=args.ecu,
                 mapped_overlap_policy=args.mapped_overlap_policy,
                 source_region=args.source_region,
+                fill_byte=args.fill,
             )
             all_results.append(r)
 
@@ -1749,6 +1754,7 @@ Outputs are offline analysis views. Conversion success is not flash proof.
                 force_ecu=args.ecu,
                 mapped_overlap_policy=args.mapped_overlap_policy,
                 source_region=args.source_region,
+                fill_byte=args.fill,
             )
             all_results.extend(results)
     else:

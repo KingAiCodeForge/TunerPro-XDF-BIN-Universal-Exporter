@@ -149,7 +149,7 @@ def clean_output_text(value: Any) -> str:
     return text
 
 
-__version__ = "3.7.5+precision.20261019"  # Local integration review, not a published release.
+__version__ = "3.7.5rc1"  # Public prerelease; native/corpus qualification remains open.
 __author__ = "Jason King"
 __author_github__ = "KingAiCodeForge"
 __author_alias__ = "kingaustraliagg"  # PCMHacking forum username
@@ -532,14 +532,13 @@ class UniversalXDFExporter:
             return False
         self._audit_tunerpro_native_text_compatibility()
         
-        # Extract header information
-        self._extract_header()
-        
-        # Extract categories
-        self._extract_categories()
-        
-        # Build uniqueid index for embedinfo axis linking (MS42/MS43 XDFs)
-        self._build_uniqueid_index()
+        try:
+            self._extract_header()
+            self._extract_categories()
+            self._build_uniqueid_index()
+        except ValueError as exc:
+            self.logger.error('Invalid XDF metadata: %s', exc)
+            return False
         
         # Extract all elements (universal approach). During extraction, defer a
         # dangling VAR link (a defect in some community XDFs) so one bad element
@@ -573,20 +572,12 @@ class UniversalXDFExporter:
         for storage in self.xdf_root.iter('EMBEDDEDDATA'):
             for name in fields:
                 if name in storage.attrib:
-                    text = storage.attrib[name].strip()
-                    try:
-                        value = int(text, 16) if text.lower().startswith('0x') else int(text)
-                    except ValueError as exc:
-                        raise ValueError(f'{name} is not an integer: {text!r}') from exc
+                    value = self._metadata_number(storage.attrib[name], name)
                     if name in ('mmedrowcount','mmedcolcount','mmedelementsizebits') and value < 1:
                         raise ValueError(f'{name} must be positive')
         for offset in self.xdf_root.iter('BASEOFFSET'):
             for name in ('offset','subtract'):
-                text = offset.get(name,'0')
-                try:
-                    value = int(text,16) if text.lower().startswith('0x') else int(text)
-                except ValueError as exc:
-                    raise ValueError(f'Invalid BASEOFFSET {name}') from exc
+                value = self._metadata_integer(offset, name, 0)
                 if name == 'subtract' and value not in (0,1):
                     raise ValueError('BASEOFFSET subtract must be 0 or 1')
         seen = set()
@@ -599,10 +590,27 @@ class UniversalXDFExporter:
         for flag in self.xdf_root.iter('XDFFLAG'):
             if self._get_address(flag) is None:
                 raise ValueError(f'Flag {self._get_title(flag)!r} has no storage address')
+            mask = flag.find('.//mask')
+            if mask is not None:
+                self._metadata_number(mask.text, 'flag mask')
         for table in self.xdf_root.iter('XDFTABLE'):
             z = next((n for n in table.findall('XDFAXIS') if n.get('id') == 'z'),None)
             if z is not None and self._get_address(z) is None and not z.findall('MATH'):
                 raise ValueError(f'Table {self._get_title(table)!r} has no Z storage or conversion')
+
+    @staticmethod
+    def _metadata_number(value, field: str) -> int:
+        """Parse one explicit integer without silently substituting a default."""
+        try:
+            text = value.strip()
+            return int(text, 16) if text.lower().startswith(('0x', '+0x', '-0x')) else int(text)
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise ValueError(f'Invalid XDF {field}: {value!r}') from exc
+
+    @classmethod
+    def _metadata_integer(cls, element, field: str, default: int) -> int:
+        value = element.get(field)
+        return default if value is None else cls._metadata_number(value, field)
 
     @staticmethod
     def _looks_like_legacy_text_xdf(text: str) -> bool:
@@ -983,17 +991,8 @@ class UniversalXDFExporter:
             # Format 1: <BASEOFFSET offset="294912" subtract="0" />
             baseoffset = header.find('.//BASEOFFSET')
             if baseoffset is not None:
-                offset_str = baseoffset.get('offset', '0')
-                try:
-                    self.base_offset = int(offset_str, 16) if offset_str.startswith('0x') else int(offset_str)
-                except ValueError:
-                    self.base_offset = 0
-                
-                subtract_str = baseoffset.get('subtract', '0')
-                try:
-                    self.base_subtract = int(subtract_str)
-                except ValueError:
-                    self.base_subtract = 0
+                self.base_offset = self._metadata_integer(baseoffset, 'offset', 0)
+                self.base_subtract = self._metadata_integer(baseoffset, 'subtract', 0)
                     
                 if self.base_offset != 0:
                     self.logger.info(f"BASEOFFSET detected: offset={self.base_offset} (0x{self.base_offset:X}), subtract={self.base_subtract}")
@@ -1002,13 +1001,9 @@ class UniversalXDFExporter:
             if self.base_offset == 0:
                 baseoffset_simple = header.find('.//baseoffset')
                 if baseoffset_simple is not None and baseoffset_simple.text:
-                    try:
-                        offset_text = baseoffset_simple.text.strip()
-                        self.base_offset = int(offset_text, 16) if offset_text.startswith('0x') else int(offset_text)
-                        if self.base_offset != 0:
-                            self.logger.info(f"BASEOFFSET (simple format) detected: offset={self.base_offset} (0x{self.base_offset:X})")
-                    except ValueError:
-                        pass
+                    self.base_offset = self._metadata_number(baseoffset_simple.text, 'baseoffset')
+                    if self.base_offset != 0:
+                        self.logger.info(f"BASEOFFSET (simple format) detected: offset={self.base_offset} (0x{self.base_offset:X})")
     
     def _extract_categories(self):
         """Extract categories and detect this XDF's membership-ID convention."""
@@ -1141,7 +1136,7 @@ class UniversalXDFExporter:
                         else int(addr_str)
                 except ValueError:
                     raise EquationError(f"VAR {name!r} has an unparseable address {addr_str!r}")
-                size_bits = int(var.get('sizeinbits', 8))
+                size_bits = self._metadata_integer(var, 'sizeinbits', 8)
                 signed = var.get('signed', '0') not in ('0', '', None)
                 raw = self.read_value_from_bin(addr, size_bits, signed, False)
                 if raw is None:
@@ -1201,7 +1196,8 @@ class UniversalXDFExporter:
                 for axis in target.findall('XDFAXIS'):
                     storage = self._parse_embedded_data(axis)
                     conversion = axis.find('MATH')
-                    axes[axis.get('id')] = dict(storage, count=int(axis.findtext('indexcount', '1')),
+                    axes[axis.get('id')] = dict(storage, count=self._metadata_number(
+                        axis.findtext('indexcount', '1'), 'linked table indexcount'),
                         equation=conversion.get('equation', '') if conversion is not None else '',
                         math_element=conversion, xml_element=axis)
                 data = self._read_table_data({'title': self._get_title(target), 'axes': axes})
@@ -1210,7 +1206,7 @@ class UniversalXDFExporter:
                 values = [value for row in data for value in row]
             else:
                 raise EquationError(f"Unsupported embedded-axis source type {target.tag}")
-            count = int(axis_elem.findtext('indexcount', '0'))
+            count = self._metadata_number(axis_elem.findtext('indexcount', '0'), 'linked axis indexcount')
             if count <= 0 or count > len(values):
                 raise EquationError(f"Embedded-axis source {uid!r} has {len(values)} values; {count} required")
             return values[:count]
@@ -1252,38 +1248,19 @@ class UniversalXDFExporter:
         embedded = element.find('.//EMBEDDEDDATA')
         if embedded is not None:
             addr = embedded.get('mmedaddress')
-            if addr:
-                try:
-                    return int(addr, 16) if addr.startswith('0x') else int(addr)
-                except ValueError:
-                    pass
-            
-            # Check for mmedtypeflags format
-            if embedded.get('mmedtypeflags'):
-                addr = embedded.get('mmedaddress')
-                if addr:
-                    try:
-                        return int(addr, 16) if addr.startswith('0x') else int(addr)
-                    except ValueError:
-                        pass
+            if addr is not None:
+                return self._metadata_number(addr, 'mmedaddress')
         
         # Method 2: Direct address attribute
         addr = element.get('address')
-        if addr:
-            try:
-                return int(addr, 16) if addr.startswith('0x') else int(addr)
-            except ValueError:
-                pass
+        if addr is not None:
+            return self._metadata_number(addr, 'address')
         
         # Method 3: mem/memory child element
         for tag in ['mem', 'memory', 'addr']:
             mem = element.find(f'.//{tag}')
-            if mem is not None and mem.text:
-                try:
-                    addr = mem.text.strip()
-                    return int(addr, 16) if addr.startswith('0x') else int(addr)
-                except ValueError:
-                    pass
+            if mem is not None:
+                return self._metadata_number(mem.text, tag)
         
         return 0 if embedded is not None else None
     
@@ -1324,64 +1301,29 @@ class UniversalXDFExporter:
                              any(v.get('type') == 'address' for v in element.findall('.//VAR')) else 0)
         
         # Address
-        addr_str = embedded.get('mmedaddress', '')
-        if addr_str:
-            try:
-                result['address'] = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
-            except ValueError:
-                pass
+        if 'mmedaddress' in embedded.attrib:
+            result['address'] = self._metadata_integer(embedded, 'mmedaddress', 0)
         
         # Size in bits
-        size_str = embedded.get('mmedelementsizebits', '')
-        if size_str:
-            try:
-                result['size_bits'] = int(size_str)
-            except ValueError:
-                pass
+        result['size_bits'] = self._metadata_integer(embedded, 'mmedelementsizebits', 8)
         
         # Type flags (signedness and endianness)
         # TunerPro XDF spec: Bit 0 = Signed, Bit 1 = LSB first (little-endian)
         # 0x00 = Unsigned MSB, 0x01 = Signed MSB, 0x02 = Unsigned LSB, 0x03 = Signed + LSB
-        flags_str = embedded.get('mmedtypeflags', '0x00')
-        try:
-            flags = int(flags_str, 16) if flags_str.startswith('0x') else int(flags_str)
-            result['type_flags'] = flags
-            result['signed'] = bool(flags & 0x01)      # Bit 0 = Signed
-            result['lsb_first'] = bool(flags & 0x02)   # Bit 1 = LSB first (little-endian)
-            result['is_float'] = bool(flags & FLOAT_FLAG)  # 0x10000 = IEEE754 cell
-        except ValueError:
-            pass
+        flags = self._metadata_integer(embedded, 'mmedtypeflags', 0)
+        result['type_flags'] = flags
+        result['signed'] = bool(flags & 0x01)
+        result['lsb_first'] = bool(flags & 0x02)
+        result['is_float'] = bool(flags & FLOAT_FLAG)
         
         # Row/column counts for tables
-        row_str = embedded.get('mmedrowcount', '')
-        if row_str:
-            try:
-                result['row_count'] = int(row_str)
-            except ValueError:
-                pass
-        
-        col_str = embedded.get('mmedcolcount', '')
-        if col_str:
-            try:
-                result['col_count'] = int(col_str)
-            except ValueError:
-                pass
+        result['row_count'] = self._metadata_integer(embedded, 'mmedrowcount', 1)
+        result['col_count'] = self._metadata_integer(embedded, 'mmedcolcount', 1)
         
         # Strides for non-contiguous data
         # BUG FIX #6: Support NEGATIVE strides (BMW backwards addressing)
-        major_str = embedded.get('mmedmajorstridebits', '')
-        if major_str:
-            try:
-                result['major_stride'] = int(major_str)  # Can be negative!
-            except ValueError:
-                pass
-        
-        minor_str = embedded.get('mmedminorstridebits', '')
-        if minor_str:
-            try:
-                result['minor_stride'] = int(minor_str)
-            except ValueError:
-                pass
+        result['major_stride'] = self._metadata_integer(embedded, 'mmedmajorstridebits', 0)
+        result['minor_stride'] = self._metadata_integer(embedded, 'mmedminorstridebits', 0)
         
         return result
     
@@ -1566,11 +1508,7 @@ class UniversalXDFExporter:
             mask_elem = flag.find('.//mask')
             mask = 0x01  # Default mask
             if mask_elem is not None and mask_elem.text:
-                try:
-                    mask_str = mask_elem.text.strip()
-                    mask = int(mask_str, 16) if mask_str.startswith('0x') else int(mask_str)
-                except ValueError:
-                    pass
+                mask = self._metadata_number(mask_elem.text, 'flag mask')
             
             self.elements['flags'].append({
                 'title': title,
@@ -1609,12 +1547,7 @@ class UniversalXDFExporter:
         embedded = axis_elem.find('.//EMBEDDEDDATA')
         literal_labels = axis_elem.findall('.//LABEL')
         if embedded is not None:
-            try:
-                literal_major_stride = int(
-                    embedded.get('mmedmajorstridebits', '0')
-                )
-            except ValueError:
-                literal_major_stride = 0
+            literal_major_stride = self._metadata_integer(embedded, 'mmedmajorstridebits', 0)
             if (
                 literal_major_stride < 0
                 and not embedded.get('mmedaddress')
@@ -1662,12 +1595,8 @@ class UniversalXDFExporter:
             labels.append(value)
 
         count_elem = axis_elem.find('.//indexcount')
-        try:
-            expected_count = int(count_elem.text.strip()) if (
-                count_elem is not None and count_elem.text
-            ) else len(labels)
-        except ValueError:
-            expected_count = len(labels)
+        expected_count = (self._metadata_number(count_elem.text, 'axis indexcount')
+                          if count_elem is not None else len(labels))
 
         # Literal axes without LABEL entries display as zero-valued slots in
         # TunerPro's native Bin Data Export.
@@ -1685,42 +1614,30 @@ class UniversalXDFExporter:
         """
         if axis_elem.get('id') == 'z':
             return []
-        self._require_integer_storage(self._parse_embedded_data(axis_elem))
+        storage = self._parse_embedded_data(axis_elem)
+        self._require_integer_storage(storage)
 
         embedded = axis_elem.find('.//EMBEDDEDDATA')
         if embedded is None:
             raise ValueError('Required embedded axis has no storage')
 
-        addr_str = embedded.get('mmedaddress', '0')
-        try:
-            address = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
-        except ValueError:
-            raise ValueError('Required embedded axis has an invalid address')
+        address = self._metadata_integer(embedded, 'mmedaddress', 0)
 
         count_elem = axis_elem.find('.//indexcount')
         if count_elem is None or not count_elem.text:
             raise ValueError('Required embedded axis has no indexcount')
-        try:
-            count = int(count_elem.text.strip())
-        except ValueError:
-            raise ValueError('Required embedded axis has an invalid indexcount')
+        count = self._metadata_number(count_elem.text, 'embedded axis indexcount')
         if count <= 0 or count > 4096:
             raise ValueError('Required embedded axis indexcount must be 1..4096')
 
-        try:
-            size_bits = int(embedded.get('mmedelementsizebits', '8'))
-        except ValueError:
-            size_bits = 8
+        size_bits = storage['size_bits']
         byte_size = max(1, size_bits // 8)
         if size_bits not in (8, 16, 32, 64):
             raise ValueError('Unsupported embedded axis element width')
-        if int(embedded.get('mmedminorstridebits','0')) != 0:
+        if storage['minor_stride'] != 0:
             raise ValueError('Embedded axis minor stride is unsupported')
 
-        try:
-            major_stride_bits = int(embedded.get('mmedmajorstridebits', '0'))
-        except ValueError:
-            major_stride_bits = 0
+        major_stride_bits = storage['major_stride']
         if major_stride_bits and major_stride_bits % 8:
             raise ValueError(
                 "Embedded axis has a non-byte-aligned major stride: "
@@ -1733,17 +1650,9 @@ class UniversalXDFExporter:
             major_stride_bits // 8 if major_stride_bits else byte_size
         )
 
-        signed = False
-        lsb_first = False
-        is_float = False
-        flags_str = embedded.get('mmedtypeflags', '0x00')
-        try:
-            flags = int(flags_str, 16) if flags_str.startswith('0x') else int(flags_str)
-            signed = bool(flags & 0x01)
-            lsb_first = bool(flags & 0x02)
-            is_float = bool(flags & FLOAT_FLAG)
-        except ValueError:
-            pass
+        signed = storage['signed']
+        lsb_first = storage['lsb_first']
+        is_float = storage['is_float']
 
         math_elem = axis_elem.find('.//MATH')
         equation = math_elem.get('equation', '') if math_elem is not None else ''
@@ -1799,11 +1708,8 @@ class UniversalXDFExporter:
                 # Get axis size/count from indexcount element
                 count_elem = axis.find('.//indexcount')
                 count = 1
-                if count_elem is not None and count_elem.text:
-                    try:
-                        count = int(count_elem.text.strip())
-                    except ValueError:
-                        pass
+                if count_elem is not None:
+                    count = self._metadata_number(count_elem.text, 'axis indexcount')
                 
                 # For Z-axis, also check row/col counts from EMBEDDEDDATA
                 if axis_id == 'z':
@@ -1922,8 +1828,8 @@ class UniversalXDFExporter:
                 
                 try:
                     # Parse address and size
-                    address = int(addr_str, 16) if addr_str.startswith('0x') else int(addr_str)
-                    datasize = int(size_str, 16) if size_str.startswith('0x') else int(size_str)
+                    address = self._metadata_number(addr_str, 'patch address')
+                    datasize = self._metadata_number(size_str, 'patch datasize')
                     if address < 0 or datasize <= 0:
                         raise ValueError('Patch address/size must be valid positive spans')
                     if not any(entry.get(k) for k in ('patchdata','basedata')):

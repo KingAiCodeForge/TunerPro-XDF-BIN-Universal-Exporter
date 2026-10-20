@@ -63,10 +63,8 @@ test_exports_v2*/
 exports/
 
 # User data (XDF/BIN files may contain personal tuning data)
-*.bin
-*.xdf
-!examples/*.bin
-!examples/*.xdf
+*.[bB][iI][nN]
+*.[xX][dD][fF]
 
 # Temporary files
 *.tmp
@@ -84,6 +82,8 @@ scan_nonbin.py
 _check_e60_sanity.py
 _test_e60_validity.py
 batch_*_manifest.csv
+# Sanitized relative-path template; no actual firmware/definitions are included.
+!batch_ms4x_manifest.csv
 batch_*_remaining.csv
 test_*_zeros.md
 

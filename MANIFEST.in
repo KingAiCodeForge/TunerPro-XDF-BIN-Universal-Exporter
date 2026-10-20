@@ -1,1 +1,7 @@
 include test_*.py
+include PUBLIC_RELEASE.md PUBLIC_CORE_AUDIT.md PUBLIC_SCRIPT_AUDIT.md PUBLIC_SOURCE_MANIFEST.json
+include _compare_xml_xdf_addresses.py _validate_xdf_bin.py _validate_zeros_and_keys.py
+include check_axis_quality.py clean_and_dedup_bins.py csv_json_input_batch_exporter.py
+include exporter_gui.py hash_dedup_dualmode.py organize_bins.py public_collection_cli.py
+include quick_scan.py run_regression_suite.py scan_bin_cal_ids.py sort_tuning_db_to_bins.py verify_bins.py
+include install.bat launch_cli.bat launch_gui.bat requirements.txt batch_ms4x_manifest.csv

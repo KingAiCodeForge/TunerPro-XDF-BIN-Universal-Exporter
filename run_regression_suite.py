@@ -43,163 +43,171 @@ def first_existing(*paths: Path) -> Path:
     return paths[0]
 
 
-CASES = (
-    {
-        "name": "BMW_MS42_0110C6",
-        "xdf": first_existing(
-            GUIDES / "Siemens_MS42_0110C6_ENG_512K_v1.1.xdf",
-            GUIDES / "xdfs" / "Siemens_MS42_0110C6_ENG_512K_v1.1.xdf",
-        ),
-        "bin": first_existing(
-            GUIDES
-            / "all_ms42_bins"
-            / "Siemens_MS42_0110C6_E46_M52TUB28_EU3_RHD.bin",
-            GUIDES / "all_ms42_bins" / "cfm54b30.bin",
-        ),
-        "expected": {"scalars": 1384, "flags": 0, "tables": 597},
-        "sentinels": (
-            {
-                "table": "id_maf_tab__v_maf_1__v_maf_2",
-                "row": 0,
-                "col": 4,
-                "value": 4.95,
-                "lsb_first": True,
-                "z_address": "0x17A6",
-            },
-        ),
-    },
-    {
-        "name": "BMW_MS43_430069",
-        "xdf": first_existing(
-            GUIDES / "Siemens_MS43_430069_512K_1.1.3v.xdf",
-            GUIDES / "xdfs" / "Siemens_MS43_430069_512K_1.1.3v.xdf",
-        ),
-        "bin": first_existing(
-            GUIDES / "all_ms43_bins" / "cfm54b30.bin",
-            GUIDES / "all_ms42_bins" / "cfm54b30.bin",
-        ),
-        "expected": {"scalars": 2256, "flags": 0, "tables": 1454},
-    },
-    {
-        "name": "BMW_MS45_4560BN00_v3",
-        "xdf": first_existing(
-            GUIDES
-            / "ms45_work"
-            / "Siemens_MS450_4560BN00_ENG_1024K_v3.0.xdf",
-            GUIDES
-            / "ms42_ms43_ms45_ai_kingai_xdfs"
-            / "ms45"
-            / "Siemens_MS450_4560BN00_ENG_1024K_v3.0.xdf",
-        ),
-        "bin": first_existing(
-            GUIDES / "all_ms45_bins" / "B039588_0044560_Flash.bin",
-            GUIDES / "all_ms45_bins" / "B039588_0044560.bin",
-        ),
-        "expected": {"scalars": 0, "flags": 0, "tables": 1244},
-    },
-    {
-        "name": "Holden_VY_V6_060A_Enhanced",
-        "xdf": REPOS
-        / "VY_V6_Assembly_Modding"
-        / "VX VY_V6_$060A_Enhanced_v2.09a.xdf",
-        "bin": REPOS
-        / "VY_V6_Assembly_Modding"
-        / "VX-VY_V6_$060A_Enhanced_v1.0a.bin",
-        "expected": {"scalars": 1310, "flags": 351, "tables": 330},
-    },
-    {
-        "name": "Synthetic_Positive_Major_Stride",
-        "synthetic": "positive_major_stride",
-        "expected": {"scalars": 0, "flags": 0, "tables": 1},
-        "sentinels": (
-            {
-                "table": "Synthetic Positive Major Stride",
-                "row": 0,
-                "col": 0,
-                "value": 10.0,
-                "x_labels": [1000.0, 2000.0, 3000.0, 4000.0],
-                "y_labels": [5.0, 10.0, 15.0],
-            },
-            {
-                "table": "Synthetic Positive Major Stride",
-                "row": 1,
-                "col": 0,
-                "value": 20.0,
-            },
-            {
-                "table": "Synthetic Positive Major Stride",
-                "row": 2,
-                "col": 3,
-                "value": 33.0,
-            },
-        ),
-    },
-    {
-        "name": "Synthetic_Overlapping_Axis_Stride",
-        "synthetic": "overlapping_axis_stride",
-        "expected": {"scalars": 0, "flags": 0, "tables": 1},
-        "sentinels": (
-            {
-                "table": "Synthetic Overlapping Axis Stride",
-                "row": 0,
-                "col": 3,
-                "value": 13.0,
-                "x_labels": [258.0, 515.0, 772.0, 1029.0],
-                "y_labels": [],
-            },
-        ),
-    },
-    {
-        "name": "Synthetic_Native_Text_Limit_Warning",
-        "synthetic": "native_text_limit_warning",
-        "expected": {"scalars": 0, "flags": 0, "tables": 1},
-        "expected_log_fragment": "TunerPro native text limit exceeded",
-    },
-    {
-        "name": "Synthetic_Native_Axis_Semantics",
-        "synthetic": "native_axis_semantics",
-        "expected": {"scalars": 0, "flags": 0, "tables": 4},
-        "sentinels": (
-            {
-                "table": "Implicit Address Is Not An Embedded Axis",
-                "row": 0,
-                "col": 1,
-                "value": 2.0,
-                "x_labels": [0.0, 0.0],
-                "y_labels": [],
-            },
-            {
-                "table": "Text Labels Keep Display Metadata",
-                "row": 0,
-                "col": 0,
-                "value": 3.0,
-                "x_labels": [0.0, 0.0],
-                "x_display_labels": ["Low", "High"],
-                "y_labels": [],
-            },
-            {
-                "table": "Negative Singleton Axis Is Suppressed",
-                "row": 0,
-                "col": 2,
-                "value": 7.0,
-                "x_labels": [0.0, 1.0, 2.0],
-                "y_labels": [],
-            },
-            {
-                "table": "One By One Table",
-                "row": 0,
-                "col": 0,
-                "value": 42.0,
-                "x_labels": [0.0],
-                "y_labels": [0.0],
-            },
-        ),
-    },
-)
+def build_cases(guides=GUIDES, repos=REPOS):
+    return (
+        {
+            "name": "BMW_MS42_0110C6",
+            "xdf": first_existing(
+                guides / "Siemens_MS42_0110C6_ENG_512K_v1.1.xdf",
+                guides / "xdfs" / "Siemens_MS42_0110C6_ENG_512K_v1.1.xdf",
+            ),
+            "bin": first_existing(
+                guides
+                / "all_ms42_bins"
+                / "Siemens_MS42_0110C6_E46_M52TUB28_EU3_RHD.bin",
+                guides / "all_ms42_bins" / "cfm54b30.bin",
+            ),
+            "expected": {"scalars": 1384, "flags": 0, "tables": 597},
+            "sentinels": (
+                {
+                    "table": "id_maf_tab__v_maf_1__v_maf_2",
+                    "row": 0,
+                    "col": 4,
+                    "value": 4.95,
+                    "lsb_first": True,
+                    "z_address": "0x17A6",
+                },
+            ),
+        },
+        {
+            "name": "BMW_MS43_430069",
+            "xdf": first_existing(
+                guides / "Siemens_MS43_430069_512K_1.1.3v.xdf",
+                guides / "xdfs" / "Siemens_MS43_430069_512K_1.1.3v.xdf",
+            ),
+            "bin": first_existing(
+                guides / "all_ms43_bins" / "cfm54b30.bin",
+                guides / "all_ms42_bins" / "cfm54b30.bin",
+            ),
+            "expected": {"scalars": 2256, "flags": 0, "tables": 1454},
+        },
+        {
+            "name": "BMW_MS45_4560BN00_v3",
+            "xdf": first_existing(
+                guides
+                / "ms45_work"
+                / "Siemens_MS450_4560BN00_ENG_1024K_v3.0.xdf",
+                guides
+                / "ms42_ms43_ms45_ai_kingai_xdfs"
+                / "ms45"
+                / "Siemens_MS450_4560BN00_ENG_1024K_v3.0.xdf",
+            ),
+            "bin": first_existing(
+                guides / "all_ms45_bins" / "B039588_0044560_Flash.bin",
+                guides / "all_ms45_bins" / "B039588_0044560.bin",
+            ),
+            "expected": {"scalars": 0, "flags": 0, "tables": 1244},
+        },
+        {
+            "name": "Holden_VY_V6_060A_Enhanced",
+            "xdf": repos
+            / "VY_V6_Assembly_Modding"
+            / "VX VY_V6_$060A_Enhanced_v2.09a.xdf",
+            "bin": repos
+            / "VY_V6_Assembly_Modding"
+            / "VX-VY_V6_$060A_Enhanced_v1.0a.bin",
+            "expected": {"scalars": 1310, "flags": 351, "tables": 330},
+        },
+        {
+            "name": "Synthetic_Positive_Major_Stride",
+            "synthetic": "positive_major_stride",
+            "expected": {"scalars": 0, "flags": 0, "tables": 1},
+            "sentinels": (
+                {
+                    "table": "Synthetic Positive Major Stride",
+                    "row": 0,
+                    "col": 0,
+                    "value": 10.0,
+                    "x_labels": [1000.0, 2000.0, 3000.0, 4000.0],
+                    "y_labels": [5.0, 10.0, 15.0],
+                },
+                {
+                    "table": "Synthetic Positive Major Stride",
+                    "row": 1,
+                    "col": 0,
+                    "value": 20.0,
+                },
+                {
+                    "table": "Synthetic Positive Major Stride",
+                    "row": 2,
+                    "col": 3,
+                    "value": 33.0,
+                },
+            ),
+        },
+        {
+            "name": "Synthetic_Overlapping_Axis_Stride",
+            "synthetic": "overlapping_axis_stride",
+            "expected": {"scalars": 0, "flags": 0, "tables": 1},
+            "sentinels": (
+                {
+                    "table": "Synthetic Overlapping Axis Stride",
+                    "row": 0,
+                    "col": 3,
+                    "value": 13.0,
+                    "x_labels": [258.0, 515.0, 772.0, 1029.0],
+                    "y_labels": [],
+                },
+            ),
+        },
+        {
+            "name": "Synthetic_Native_Text_Limit_Warning",
+            "synthetic": "native_text_limit_warning",
+            "expected": {"scalars": 0, "flags": 0, "tables": 1},
+            "expected_log_fragment": "TunerPro native text limit exceeded",
+        },
+        {
+            "name": "Synthetic_Native_Axis_Semantics",
+            "synthetic": "native_axis_semantics",
+            "expected": {"scalars": 0, "flags": 0, "tables": 4},
+            "sentinels": (
+                {
+                    "table": "Implicit Address Is Not An Embedded Axis",
+                    "row": 0,
+                    "col": 1,
+                    "value": 2.0,
+                    "x_labels": [0.0, 0.0],
+                    "y_labels": [],
+                },
+                {
+                    "table": "Text Labels Keep Display Metadata",
+                    "row": 0,
+                    "col": 0,
+                    "value": 3.0,
+                    "x_labels": [0.0, 0.0],
+                    "x_display_labels": ["Low", "High"],
+                    "y_labels": [],
+                },
+                {
+                    "table": "Negative Singleton Axis Is Suppressed",
+                    "row": 0,
+                    "col": 2,
+                    "value": 7.0,
+                    "x_labels": [0.0, 1.0, 2.0],
+                    "y_labels": [],
+                },
+                {
+                    "table": "One By One Table",
+                    "row": 0,
+                    "col": 0,
+                    "value": 42.0,
+                    "x_labels": [0.0],
+                    "y_labels": [0.0],
+                },
+            ),
+        },
+    )
+
+
+CASES = build_cases()
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--guides-root", type=Path, default=GUIDES,
+                        help="Authorised BMW corpus root; default KINGAI_BMW_GUIDES_ROOT environment variable")
+    parser.add_argument("--repos-root", type=Path, default=REPOS,
+                        help="Authorised corpus parent; default KINGAI_REPOS_ROOT environment variable")
     parser.add_argument(
         "--keep-output",
         type=Path,
@@ -707,8 +715,9 @@ def run_case(case: dict[str, Any], root: Path) -> dict[str, Any]:
 
 def main() -> int:
     args = parse_args()
-    selected = [case for case in CASES if not args.case or case["name"] in args.case]
-    unknown = sorted(set(args.case) - {case["name"] for case in CASES})
+    cases = build_cases(args.guides_root.resolve(), args.repos_root.resolve())
+    selected = [case for case in cases if not args.case or case["name"] in args.case]
+    unknown = sorted(set(args.case) - {case["name"] for case in cases})
     if unknown:
         print("Unknown case(s): " + ", ".join(unknown), file=sys.stderr)
         return 2
@@ -719,7 +728,10 @@ def main() -> int:
     temp_root: Path | None = None
     if args.keep_output:
         output_root = args.keep_output.resolve()
-        output_root.mkdir(parents=True, exist_ok=True)
+        if output_root.exists() or output_root.is_symlink():
+            print(f"Refusing existing output directory: {output_root}", file=sys.stderr)
+            return 2
+        output_root.mkdir(parents=True, exist_ok=False)
     else:
         temp_root = Path(tempfile.mkdtemp(prefix="kingai_exporter_regression_"))
         output_root = temp_root

@@ -1,22 +1,11 @@
 #!/usr/bin/env python3
 """Quick scan of ms42/ms43/ms45 folders to find files that don't belong."""
+import argparse
+import io
 import os, re, sys, json
-sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+from public_collection_cli import collection_arguments, write_report
 
-SCAN_DIRS = {
-    "all_ms42_bins": r"A:\1bmw_ms42_tuning_guides\all_ms42_bins",
-    "all_ms43_bins": r"A:\1bmw_ms42_tuning_guides\all_ms43_bins",
-    "all_ms45_bins": r"A:\1bmw_ms42_tuning_guides\all_ms45_bins",
-    "checksum_files": r"A:\1bmw_ms42_tuning_guides\checksum_files",
-    "gs8604_egs_work": r"A:\1bmw_ms42_tuning_guides\gs8604_egs_work",
-    "ms42_damos": r"A:\1bmw_ms42_tuning_guides\ms42_damos",
-    "ms42_outputs_and_bins_xdfs": r"A:\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs",
-    "ms43_damos": r"A:\1bmw_ms42_tuning_guides\ms43_damos",
-    "ms43_outputs_and_bins_xdfs": r"A:\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs",
-    "ms45_combo_output": r"A:\1bmw_ms42_tuning_guides\ms45_combo_output",
-    "ms45_damos": r"A:\1bmw_ms42_tuning_guides\ms45_damos",
-    "ms45_work": r"A:\1bmw_ms42_tuning_guides\ms45_work",
-}
+
 
 # Cal ID patterns in binary data
 MS42_PAT = re.compile(rb'(ca0110[A-Z0-9]{2})', re.IGNORECASE)  
@@ -84,16 +73,18 @@ def scan_bin(path):
     
     return types, cal_ids, size
 
-def main():
+def _main(argv=None):
+    args = collection_arguments(argparse.ArgumentParser(description="Read-only, heuristic BIN string scan; no compatibility qualification."), argv)
+    scan_dirs = {str(folder): folder for folder in args.folders}
     misplaced = []
     unknown_type = []
     total = 0
     
-    for folder_name, folder_path in sorted(SCAN_DIRS.items()):
+    for folder_name, folder_path in sorted(scan_dirs.items()):
         if not os.path.isdir(folder_path):
             continue
         bins = sorted([f for f in os.listdir(folder_path) if f.lower().endswith('.bin')])
-        expected_type = EXPECTED.get(folder_name)
+        expected_type = EXPECTED.get(os.path.basename(folder_name))
         
         for fname in bins:
             total += 1
@@ -114,16 +105,15 @@ def main():
                     unknown_type.append((folder_name, fname, size_kb, sorted(cal_ids)))
     
     # Write results
-    out = r"A:\1bmw_ms42_tuning_guides\misplaced_bins_report.txt"
-    with open(out, 'w', encoding='utf-8') as f:
-        f.write(f"BMW Binary File Classification Report\n")
+    with io.StringIO() as f:
+        f.write(f"BIN string heuristic report (not ECU compatibility qualification)\n")
         f.write(f"{'='*80}\n")
         f.write(f"Total .bin files scanned: {total}\n")
         f.write(f"Misplaced files: {len(misplaced)}\n")
         f.write(f"Unknown type files: {len(unknown_type)}\n\n")
         
         f.write(f"{'='*80}\n")
-        f.write(f"MISPLACED FILES (file is in wrong folder based on detected ECU type)\n")
+        f.write(f"POSSIBLE MISPLACEMENTS (string heuristics only; review required)\n")
         f.write(f"{'='*80}\n")
         for folder, fname, types, size, cals in misplaced:
             f.write(f"  [{folder}] {fname}\n")
@@ -139,12 +129,19 @@ def main():
             else:
                 f.write(f"  [{item[0]}] {item[1]} (ERROR: {item[2]})\n")
     
-    print(f"Report written to: {out}")
-    print(f"Total: {total} | Misplaced: {len(misplaced)} | Unknown: {len(unknown_type)}")
-    
-    # Also print to stdout
-    with open(out, 'r', encoding='utf-8') as f:
-        print(f.read())
+        report = f.getvalue()
+    write_report(args.output, report)
+    print(report)
+    return 0
+
+
+def main(argv=None):
+    try:
+        return _main(argv)
+    except (OSError, ValueError) as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
+
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

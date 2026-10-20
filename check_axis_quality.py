@@ -1,89 +1,65 @@
 #!/usr/bin/env python3
-"""Quick axis quality checker - reads combo JSON and checks if X/Y axes are smooth."""
-import json, sys, os
+"""Read-only axis-coordinate review for exported JSON files.
 
-combo_dir = r'A:\repos\[bmw_ms42_tuning_guides\ms45_combo_output'
+Monotonic coordinates are not necessarily correct or smooth calibration data.
+Missing, literal, or non-finite coordinates are reported as unresolved.
+"""
+from __future__ import annotations
+import argparse
+import json
+import math
+from pathlib import Path
 
-# Check all combos for axis monotonicity
-combos = sorted([d for d in os.listdir(combo_dir) if os.path.isdir(os.path.join(combo_dir, d))])
 
-for combo_name in combos:
-    json_files = [f for f in os.listdir(os.path.join(combo_dir, combo_name)) if f.endswith('.json')]
-    if not json_files:
-        continue
-    
-    jpath = os.path.join(combo_dir, combo_name, json_files[0])
-    with open(jpath) as f:
-        j = json.load(f)
-    
-    tables = j.get('tables', [])
-    total_with_axes = 0
-    mono_ok = 0
-    mono_bad = 0
-    bad_examples = []
-    good_examples = []
-    
-    for t in tables:
-        if t.get('status') != 'OK':
-            continue
-        xl = t.get('x_labels', [])
-        yl = t.get('y_labels', [])
-        if len(xl) < 3 and len(yl) < 3:
-            continue
-        
-        total_with_axes += 1
-        
-        x_mono = all(xl[i] <= xl[i+1] for i in range(len(xl)-1)) if len(xl) > 1 else True
-        y_mono = all(yl[i] <= yl[i+1] for i in range(len(yl)-1)) if len(yl) > 1 else True
-        
-        if x_mono and y_mono:
-            mono_ok += 1
-            if len(good_examples) < 3 and len(xl) >= 5:
-                good_examples.append({
-                    'title': t['title'],
-                    'x': xl[:12],
-                    'y': yl[:12],
-                    'rows': t.get('rows',0),
-                    'cols': t.get('cols',0),
-                    'min': t.get('min',0),
-                    'max': t.get('max',0)
-                })
+def monotonic(values):
+    if not values or any(not isinstance(value, (int, float)) or
+                         not math.isfinite(value) for value in values):
+        return None
+    return all(left <= right for left, right in zip(values, values[1:]))
+
+
+def inspect_file(path):
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("tables"), list):
+        raise ValueError(f"Not an exporter JSON object with tables: {path}")
+    reports = []
+    for table in data["tables"]:
+        if not isinstance(table, dict):
+            raise ValueError(f"Malformed table in {path}")
+        axes = table.get("axes", {})
+        result = {"title": table.get("title", "Unnamed table")}
+        for axis in ("x", "y"):
+            metadata = axes.get(axis, {})
+            values = metadata.get("coordinate_values", metadata.get("labels", table.get(f"{axis}_labels", [])))
+            result[axis] = monotonic(values)
+        reports.append(result)
+    return reports
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("inputs", nargs="+", type=Path, help="JSON files or directories (recursive)")
+    args = parser.parse_args(argv)
+    files = []
+    for path in args.inputs:
+        if path.is_dir():
+            files.extend(sorted(path.rglob("*.json")))
+        elif path.is_file():
+            files.append(path)
         else:
-            mono_bad += 1
-            if len(bad_examples) < 5:
-                bad_examples.append({
-                    'title': t['title'],
-                    'x': xl[:12],
-                    'y': yl[:12],
-                    'x_mono': x_mono,
-                    'y_mono': y_mono,
-                    'rows': t.get('rows',0),
-                    'cols': t.get('cols',0),
-                })
-    
-    pct = (mono_ok / total_with_axes * 100) if total_with_axes > 0 else 0
-    marker = "GOOD" if pct > 80 else "PARTIAL" if pct > 50 else "BAD"
-    
-    print(f"\n{'='*80}")
-    print(f"COMBO: {combo_name}")
-    print(f"  Tables with axes: {total_with_axes}")
-    print(f"  Monotonic (smooth): {mono_ok} ({pct:.1f}%)  [{marker}]")
-    print(f"  Non-monotonic (jumbled): {mono_bad}")
-    
-    if good_examples:
-        print(f"\n  GOOD axis examples:")
-        for g in good_examples[:2]:
-            print(f"    {g['title']} [{g['rows']}x{g['cols']}] data=[{g['min']:.2f}..{g['max']:.2f}]")
-            print(f"      X: {g['x']}")
-            if g['y']:
-                print(f"      Y: {g['y']}")
-    
-    if bad_examples:
-        print(f"\n  BAD axis examples:")
-        for b in bad_examples[:3]:
-            print(f"    {b['title']} [{b['rows']}x{b['cols']}]")
-            print(f"      X({'' if b['x_mono'] else 'NOT '}mono): {b['x']}")
-            if b['y']:
-                print(f"      Y({'' if b['y_mono'] else 'NOT '}mono): {b['y']}")
+            parser.error(f"Input does not exist: {path}")
+    if not files:
+        parser.error("No JSON files found")
+    try:
+        for path in dict.fromkeys(files):
+            reports = inspect_file(path)
+            print(f"{path.name}: {len(reports)} tables; non-decreasing numeric coordinates:")
+            for result in reports:
+                print(f"  {result['title']}: X={result['x']} Y={result['y']} (None=unresolved)")
+    except (OSError, ValueError, TypeError) as exc:
+        parser.exit(2, f"error: {exc}\n")
+    return 0
 
-print("\n\nDONE")
+
+if __name__ == "__main__":
+    raise SystemExit(main())

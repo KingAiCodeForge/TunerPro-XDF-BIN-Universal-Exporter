@@ -1,26 +1,19 @@
 #!/usr/bin/env python3
-"""
-Organize all MS42 and MS43 .bin files from A:\ into categorized folders.
-Creates:
-  A:\1bmw_ms42_tuning_guides\all_ms42_bins\  — MS42 / 0110AD / 0110C6 bins
-  A:\1bmw_ms42_tuning_guides\all_ms43_bins\  — MS43 / 430069 / 430070 / 430037 bins
-  
-Copies (does NOT move) files, preserving originals.
-Also generates a manifest with XDF-to-bin mapping.
-"""
+"""Preview or copy a BIN inventory into heuristic MS42/MS43 folders.
 
-import os
-import shutil
+Pass explicit source and destination directories. Preview is the default;
+--apply copies files and a SHA-256 manifest without changing source files.
+Filename classification is a search hint, not ECU or XDF compatibility proof.
+"""
+from __future__ import annotations
+
+import argparse
 import hashlib
+import json
+import os
 from pathlib import Path
-from collections import defaultdict
+import shutil
 
-BASE = Path(r"A:\\")
-GUIDE_DIR = Path(r"A:\1bmw_ms42_tuning_guides")
-MS42_DIR = GUIDE_DIR / "all_ms42_bins"
-MS43_DIR = GUIDE_DIR / "all_ms43_bins"
-
-# --- Classification rules ---
 def classify_bin(name_lower, path_str_lower):
     """Return 'ms42', 'ms43', 'unknown', or 'skip'."""
     # Skip non-ECU files
@@ -61,15 +54,12 @@ def classify_bin(name_lower, path_str_lower):
 
 
 def get_file_hash(filepath, block_size=65536):
-    """SHA256 of file for dedup."""
-    h = hashlib.sha256()
-    try:
-        with open(filepath, 'rb') as f:
-            for block in iter(lambda: f.read(block_size), b''):
-                h.update(block)
-        return h.hexdigest()[:16]
-    except:
-        return 'error'
+    """Return the complete SHA-256 digest; read failures propagate."""
+    digest = hashlib.sha256()
+    with open(filepath, "rb") as stream:
+        for block in iter(lambda: stream.read(block_size), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def get_size_category(size):
@@ -88,320 +78,116 @@ def get_size_category(size):
         return f'{size}B'
 
 
-def main():
-    print("=" * 80)
-    print("MS42/MS43 BIN FILE ORGANIZER")
-    print("=" * 80)
-    
-    # Create output directories
-    MS42_DIR.mkdir(parents=True, exist_ok=True)
-    MS43_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Scan KNOWN directories where MS42/MS43/MS45 bins live
-    # (Full A:\ walk is too slow — 100GB+ drive)
-    SCAN_DIRS = [
-        # Root-level bins
-        (r"A:\\", False),  # Non-recursive root only
-        # Kings tuning folders
-        (r"A:\1kings bmw tuning", True),
-        # Output folders (already created bins)
-        (r"A:\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs", True),
-        (r"A:\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs", True),
-        # Racemode folders
-        (r"A:\binfilesracemode", True),
-        (r"A:\ms42 to ms43 racemode m52tu tunes", True),
-        # Stock tune repos
-        (r"A:\ms43-main", True),
-        (r"A:\ms43-main v1.13 latest", True),
-        # BMW ECUs repo
-        (r"A:\BMW_ECUs-main", True),
-        # 325ti MS43 project
-        (r"A:\325ti_MS43-main", True),
-        # Tune packs
-        (r"A:\MS43_M52TUB28_M50B25_Tune_Pack (1)", True),
-        # Touched up tunes
-        (r"A:\touched up ms42", True),
-        # BMW work directories
-        (r"A:\BMW_ms42_workinprogress", True),
-        (r"A:\BMW_ms42_carproductions", True),
-        (r"A:\BMW_ECU_Organization", True),
-        # Kingai patchlist work
-        (r"A:\kingai_bmw_siemens_ms42x_0110C6_patchlist_and_patchs_work_in_progress", True),
-        # Siemens MS42 0110C6 folder 
-        (r"A:\Siemens_MS42_0110C6_ENG_32K_v1.1", True),
-        # Alpina folders
-        (r"A:\Alp_na-B3S-EGS-GS8.60.4", True),
-        # Bosch MAF on MS43
-        (r"A:\Bosch_Audi_RS4_MAF_on_Siemens_MS43", True),
-        # MS43X custom firmware
-        (r"A:\ms43x-custom-firmware", True),
-    ]
-    
-    all_bins = []
-    skip_dirs = {'all_ms42_bins', 'all_ms43_bins', 'ms45_combo_output'}
-    
-    for scan_path, recursive in SCAN_DIRS:
-        if not os.path.isdir(scan_path):
-            print(f"  [skip] {scan_path} — not found")
-            continue
-        
-        if recursive:
-            for root, dirs, files in os.walk(scan_path):
-                # Skip destination/output folders
-                if any(s in root for s in skip_dirs):
-                    continue
-                for f in files:
-                    if f.lower().endswith('.bin'):
-                        all_bins.append(os.path.join(root, f))
-        else:
-            # Non-recursive — root-level files only
-            for f in os.listdir(scan_path):
-                full = os.path.join(scan_path, f)
-                if os.path.isfile(full) and f.lower().endswith('.bin'):
-                    all_bins.append(full)
-    
-    print(f"\nTotal .bin files found on A:\\: {len(all_bins)}")
-    
-    # Classify
-    ms42_bins = []
-    ms43_bins = []
-    unknown_bins = []
-    
-    for bp in all_bins:
-        name_lower = os.path.basename(bp).lower()
-        path_lower = bp.lower()
-        cat = classify_bin(name_lower, path_lower)
-        
-        if cat == 'ms42':
-            ms42_bins.append(bp)
-        elif cat == 'ms43':
-            ms43_bins.append(bp)
-        else:
-            unknown_bins.append(bp)
-    
-    print(f"  MS42: {len(ms42_bins)} bins")
-    print(f"  MS43: {len(ms43_bins)} bins")
-    print(f"  Unknown: {len(unknown_bins)} bins")
-    
-    # Copy and deduplicate
-    manifest = []
-    seen_hashes = {}
-    
-    def copy_bins(bin_list, dest_dir, ecu_label):
-        copied = 0
-        dupes = 0
-        for bp in sorted(bin_list):
-            fsize = os.path.getsize(bp)
-            fhash = get_file_hash(bp)
-            size_cat = get_size_category(fsize)
-            basename = os.path.basename(bp)
-            
-            # Track for manifest
-            entry = {
-                'source': bp,
-                'name': basename,
-                'size': fsize,
-                'size_cat': size_cat,
-                'hash': fhash,
-                'ecu': ecu_label
-            }
-            manifest.append(entry)
-            
-            # Check for exact duplicate in destination
-            dest = dest_dir / basename
-            if dest.exists():
-                dest_hash = get_file_hash(str(dest))
-                if dest_hash == fhash:
-                    dupes += 1
-                    continue
-                # Different content, same name — suffix with source hint
-                src_hint = os.path.basename(os.path.dirname(bp)).replace(' ', '_')[:30]
-                stem = Path(basename).stem
-                ext = Path(basename).suffix
-                dest = dest_dir / f"{stem}_from_{src_hint}{ext}"
-            
-            if fhash in seen_hashes and seen_hashes[fhash] != bp:
-                # Same content already copied under different name
-                entry['duplicate_of'] = seen_hashes[fhash]
-                # Still copy it, user wants all bins in one place
-            
-            seen_hashes.setdefault(fhash, bp)
-            
-            try:
-                shutil.copy2(bp, str(dest))
-                copied += 1
-            except Exception as e:
-                print(f"  ERROR copying {basename}: {e}")
-        
-        return copied, dupes
-    
-    print(f"\n--- Copying MS42 bins to {MS42_DIR} ---")
-    c42, d42 = copy_bins(ms42_bins, MS42_DIR, 'MS42')
-    print(f"  Copied: {c42}, Skipped duplicates: {d42}")
-    
-    print(f"\n--- Copying MS43 bins to {MS43_DIR} ---")
-    c43, d43 = copy_bins(ms43_bins, MS43_DIR, 'MS43')
-    print(f"  Copied: {c43}, Skipped duplicates: {d43}")
-    
-    # --- Generate manifest with XDF mapping ---
-    print("\n" + "=" * 80)
-    print("BIN-TO-XDF MAPPING GUIDE")
-    print("=" * 80)
-    
-    xdf_guide = []
-    xdf_guide.append("# MS42 / MS43 Bin File Inventory & XDF Mapping\n")
-    xdf_guide.append(f"Generated by organize_bins.py\n")
-    xdf_guide.append(f"Total bins cataloged: {len(manifest)}\n\n")
-    
-    # XDF mapping rules
-    xdf_guide.append("## XDF Assignment Rules\n\n")
-    xdf_guide.append("### MS42 (0110C6) Bins\n")
-    xdf_guide.append("| Size | XDF to Use | Notes |\n")
-    xdf_guide.append("|------|-----------|-------|\n")
-    xdf_guide.append("| 32KB  | `Siemens_MS42_0110C6_ENG_32K_v1.1.xdf` | Calibration-only region |\n")
-    xdf_guide.append("| 512KB | `Siemens_MS42_0110C6_ENG_512K_v1.1.xdf` | Full flash image |\n")
-    xdf_guide.append("| 512KB + Patchlist | `Siemens_MS42_0110C6_Community_Patchlist_v1.7.1.xdf` | Emulation firmware with patches |\n\n")
-    
-    xdf_guide.append("### MS42 (0110AD) Bins\n")
-    xdf_guide.append("| Size | XDF to Use | Notes |\n")
-    xdf_guide.append("|------|-----------|-------|\n")
-    xdf_guide.append("| 32KB  | `MS42_01100AD_ENG_32KB.xdf` | Calibration-only |\n")
-    xdf_guide.append("| 512KB | `MS42_01100AD_ENG_512KB.xdf` | Full flash image |\n\n")
-    
-    xdf_guide.append("### MS43 (430069) Bins\n")
-    xdf_guide.append("| Size | XDF to Use | Notes |\n")
-    xdf_guide.append("|------|-----------|-------|\n")
-    xdf_guide.append("| 64KB  | `Siemens_MS43_430069_64K.xdf` | Calibration-only region |\n")
-    xdf_guide.append("| 512KB | `Siemens_MS43_430069_512K_1.1.3v.xdf` | Full flash (latest v1.1.3) |\n")
-    xdf_guide.append("| 512KB + Patchlist | `Siemens_MS43_MS430069_Community_Patchlist_v2.9.2.xdf` | Emulation firmware with patches |\n\n")
-    
-    xdf_guide.append("### MS4X Flash Emulation Firmware\n")
-    xdf_guide.append("| XDF | Applies To |\n")
-    xdf_guide.append("|-----|----------|\n")
-    xdf_guide.append("| `MS4X_Flash_Emulation_Firmware_Patchlist.xdf` | Both MS42 & MS43 emulation-only bins |\n\n")
-    
-    # --- MS42 Bin Catalog ---
-    xdf_guide.append("---\n\n## MS42 Bin Catalog\n\n")
-    xdf_guide.append("| # | Filename | Size | Size Cat | Hash | Correct XDF | Source |\n")
-    xdf_guide.append("|---|----------|------|----------|------|------------|--------|\n")
-    
-    ms42_entries = [e for e in manifest if e['ecu'] == 'MS42']
-    ms42_entries.sort(key=lambda e: (e['size_cat'], e['name'].lower()))
-    
-    for i, e in enumerate(ms42_entries, 1):
-        name = e['name']
-        # Determine correct XDF
-        name_l = name.lower()
-        if '0110ad' in name_l:
-            if e['size_cat'] == '32KB':
-                xdf = 'MS42_01100AD_ENG_32KB.xdf'
-            else:
-                xdf = 'MS42_01100AD_ENG_512KB.xdf'
-        elif 'emulationonly' in name_l or 'emulation' in name_l:
-            xdf = 'MS4X_Flash_Emulation_Firmware_Patchlist.xdf + 0110C6_Community_Patchlist'
-        else:
-            if e['size_cat'] == '32KB':
-                xdf = 'Siemens_MS42_0110C6_ENG_32K_v1.1.xdf'
-            else:
-                xdf = 'Siemens_MS42_0110C6_ENG_512K_v1.1.xdf'
-        
-        src = os.path.dirname(e['source']).replace('A:\\', '')[:50]
-        xdf_guide.append(f"| {i} | {name[:60]} | {e['size']:,} | {e['size_cat']} | {e['hash']} | {xdf} | {src} |\n")
-    
-    # --- MS43 Bin Catalog ---
-    xdf_guide.append("\n---\n\n## MS43 Bin Catalog\n\n")
-    xdf_guide.append("| # | Filename | Size | Size Cat | Hash | Correct XDF | Source |\n")
-    xdf_guide.append("|---|----------|------|----------|------|------------|--------|\n")
-    
-    ms43_entries = [e for e in manifest if e['ecu'] == 'MS43']
-    ms43_entries.sort(key=lambda e: (e['size_cat'], e['name'].lower()))
-    
-    for i, e in enumerate(ms43_entries, 1):
-        name = e['name']
-        name_l = name.lower()
-        if 'emulationonly' in name_l or 'emulation' in name_l:
-            xdf = 'MS4X_Flash_Emulation_Firmware_Patchlist.xdf + 430069_Community_Patchlist'
-        elif '430037' in name_l:
-            xdf = 'Alpina MS43 430037 (no standard XDF available)'
-        elif '430070' in name_l:
-            xdf = 'Alpina MS43 430070 (no standard XDF available)'
-        elif e['size_cat'] == '64KB':
-            xdf = 'Siemens_MS43_430069_64K.xdf'
-        elif e['size_cat'] == '512KB':
-            xdf = 'Siemens_MS43_430069_512K_1.1.3v.xdf'
-        else:
-            xdf = 'Siemens_MS43_430069_512K_1.1.3v.xdf (check size!)'
-        
-        src = os.path.dirname(e['source']).replace('A:\\', '')[:50]
-        xdf_guide.append(f"| {i} | {name[:60]} | {e['size']:,} | {e['size_cat']} | {e['hash']} | {xdf} | {src} |\n")
-    
-    # --- Racemode Analysis ---
-    xdf_guide.append("\n---\n\n## Racemode Alpha-N Bins (Key Interest)\n\n")
-    racemode_bins = [e for e in manifest if 'racemode' in e['name'].lower() or 'alpha' in e['name'].lower()]
-    if racemode_bins:
-        for e in racemode_bins:
-            xdf_guide.append(f"- **{e['name']}**\n")
-            xdf_guide.append(f"  - Size: {e['size']:,} bytes ({e['size_cat']})\n")
-            xdf_guide.append(f"  - Hash: {e['hash']}\n")
-            xdf_guide.append(f"  - Source: `{e['source']}`\n")
-            xdf_guide.append(f"  - XDF: `Siemens_MS43_430069_512K_1.1.3v.xdf` (base) + `Siemens_MS43_MS430069_Community_Patchlist_v2.9.2.xdf` (racemode patches)\n")
-            xdf_guide.append(f"  - **This is MS43 430069 with M52TUB28 Alpha-N racemode — key file for M52TUB25 port**\n\n")
-    
-    # --- M52TUB28 swap bins on MS43 ---
-    xdf_guide.append("\n## M52TUB28-on-MS43 Swap/Tune Bins\n\n")
-    swap_bins = [e for e in manifest if 'm52tu' in e['name'].lower() and e['ecu'] == 'MS43']
-    for e in swap_bins:
-        xdf_guide.append(f"- **{e['name']}**\n")
-        xdf_guide.append(f"  - Size: {e['size']:,} ({e['size_cat']}), Source: `{os.path.dirname(e['source'])}`\n")
-    
-    # --- Unknown bins ---
-    if unknown_bins:
-        xdf_guide.append("\n---\n\n## Unclassified Bins\n\n")
-        for bp in sorted(unknown_bins):
-            xdf_guide.append(f"- `{bp}`\n")
-    
-    # --- Duplicate detection ---
-    xdf_guide.append("\n---\n\n## Duplicate Detection (Same Hash)\n\n")
-    hash_groups = defaultdict(list)
-    for e in manifest:
-        hash_groups[e['hash']].append(e)
-    
-    dupe_count = 0
-    for h, entries in sorted(hash_groups.items()):
-        if len(entries) > 1:
-            dupe_count += 1
-            xdf_guide.append(f"### Hash {h} ({entries[0]['size_cat']})\n")
-            for e in entries:
-                xdf_guide.append(f"- `{e['source']}`\n")
-            xdf_guide.append("\n")
-    
-    if dupe_count == 0:
-        xdf_guide.append("No duplicate bins found.\n")
+def validate_roots(source, destination):
+    source = Path(source).expanduser().resolve()
+    destination = Path(destination).expanduser().resolve()
+    if not source.is_dir():
+        raise ValueError(f"Source directory not found: {source}")
+    if destination == source or source in destination.parents:
+        raise ValueError("Destination must be outside the source directory")
+    if destination.exists() and not destination.is_dir():
+        raise ValueError(f"Destination is not a directory: {destination}")
+    return source, destination
+
+
+def source_files(source, recursive=True):
+    """Yield regular files deterministically, without following directory links."""
+    if recursive:
+        for root, dirs, names in os.walk(source, followlinks=False):
+            dirs[:] = sorted(d for d in dirs if not (Path(root) / d).is_symlink())
+            for name in sorted(names):
+                path = Path(root) / name
+                if path.is_file() and not path.is_symlink():
+                    yield path
     else:
-        xdf_guide.append(f"\n**{dupe_count} groups of duplicate bins found.**\n")
-    
-    # Write manifest
-    manifest_path = GUIDE_DIR / "bin_inventory_and_xdf_mapping.md"
-    with open(str(manifest_path), 'w', encoding='utf-8') as f:
-        f.writelines(xdf_guide)
-    
-    print(f"\nManifest written to: {manifest_path}")
-    
-    # Summary
-    print("\n" + "=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-    print(f"MS42 bins copied to: {MS42_DIR}")
-    print(f"  Files: {len(list(MS42_DIR.glob('*.bin')))} bins")
-    print(f"MS43 bins copied to: {MS43_DIR}")
-    print(f"  Files: {len(list(MS43_DIR.glob('*.bin')))} bins")
-    print(f"Manifest: {manifest_path}")
-    
-    # Print key racemode info
-    print("\n--- KEY RACEMODE ALPHA-N FILES ---")
-    for e in racemode_bins:
-        print(f"  {e['name']} ({e['size_cat']}) → in {MS43_DIR}")
+        yield from (p for p in sorted(source.iterdir()) if p.is_file() and not p.is_symlink())
 
 
-if __name__ == '__main__':
-    main()
+def plan_entry(source, path, category, filename=None):
+    """Preserve the relative parent path so equal basenames remain identifiable."""
+    relative = path.relative_to(source)
+    target = Path(category) / relative.parent / (filename or relative.name)
+    return {"source": relative.as_posix(), "destination": target.as_posix(),
+            "sha256": get_file_hash(path), "size": path.stat().st_size,
+            "category_hint": category}
+
+
+def execute_plan(source, destination, entries, apply=False, manifest_name="inventory.json"):
+    """Preflight the whole plan, then exclusively create copies and a manifest.
+
+    This prevents accidental overwrites; it is not an atomic directory transaction
+    or protection against concurrent hostile path replacement. A failure can leave
+    partial new outputs, but existing files and source files remain untouched.
+    """
+    source, destination = validate_roots(source, destination)
+    manifest = destination / manifest_name
+    targets = []
+    seen = set()
+    for entry in entries:
+        target = destination / entry["destination"]
+        resolved = target.resolve()
+        if destination not in resolved.parents or resolved == destination:
+            raise ValueError(f"Destination escapes output directory: {entry['destination']}")
+        key = str(resolved).casefold()
+        if key in seen:
+            raise ValueError(f"Duplicate planned output: {entry['destination']}")
+        seen.add(key)
+        if target.exists() or target.is_symlink():
+            raise FileExistsError(f"Refusing existing output: {target}")
+        for parent in target.parents:
+            if parent == destination.parent:
+                break
+            if parent.exists() and not parent.is_dir():
+                raise ValueError(f"Output parent is not a directory: {parent}")
+        targets.append(target)
+    if str(manifest.resolve()).casefold() in seen:
+        raise ValueError("Manifest conflicts with a planned output")
+    if manifest.exists() or manifest.is_symlink():
+        raise FileExistsError(f"Refusing existing manifest: {manifest}")
+    for entry, target in zip(entries, targets):
+        print(f"{'COPY' if apply else 'PREVIEW'} {entry['source']} -> {entry['destination']} sha256={entry['sha256']}")
+    if not apply:
+        print(f"Preview: {len(entries)} files; no files written. Use --apply to create copies.")
+        return
+    for entry, target in zip(entries, targets):
+        origin = source / entry["source"]
+        if get_file_hash(origin) != entry["sha256"]:
+            raise ValueError(f"Source changed since planning: {entry['source']}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with origin.open("rb") as reader, target.open("xb") as writer:
+            shutil.copyfileobj(reader, writer)
+        if get_file_hash(target) != entry["sha256"]:
+            raise OSError(f"Copy hash mismatch: {target}")
+    destination.mkdir(parents=True, exist_ok=True)
+    with manifest.open("x", encoding="utf-8") as stream:
+        json.dump({"schema": "kingai.copy-inventory.v1",
+                   "classification": "filename heuristics only; no ECU or XDF qualification",
+                   "source_files_preserved": True, "files": entries}, stream, indent=2)
+        stream.write("\n")
+    print(f"Created {len(entries)} copies; manifest: {manifest}")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path, help="Source directory containing BIN files")
+    parser.add_argument("destination", type=Path, help="Output directory outside source")
+    parser.add_argument("--flat", action="store_true", help="Scan only the source directory")
+    parser.add_argument("--apply", action="store_true", help="Create copies; preserve all source files")
+    args = parser.parse_args(argv)
+    try:
+        source, destination = validate_roots(args.source, args.destination)
+        entries = []
+        for path in source_files(source, recursive=not args.flat):
+            if path.suffix.lower() != ".bin":
+                continue
+            relative = path.relative_to(source)
+            category = classify_bin(path.name.lower(), relative.as_posix().lower())
+            entries.append(plan_entry(source, path, {"ms42": "all_ms42_bins", "ms43": "all_ms43_bins"}.get(category, "unclassified")))
+        execute_plan(source, destination, entries, args.apply)
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

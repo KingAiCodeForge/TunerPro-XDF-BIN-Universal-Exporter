@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kingai-tunerpro-xdf"
-version = "3.7.5+precision.20261019"
+version = "3.7.5rc1"
 description = "Shared TunerPro XDF parsing and BIN export implementation"
 requires-python = ">=3.10"
 readme = "README.md"

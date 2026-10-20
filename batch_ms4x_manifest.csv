@@ -1,26 +1,4 @@
 xdf,bin,output,format,options
-# =============================================================================
-# MS42 Exports - 0110C6 XDF (512K) vs representative BINs
-# =============================================================================
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS42_0110C6_ENG_512K_v1.1.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins\Siemens_MS42_0110C6_E46_M52TUB28_EU3_RHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs\ms42_0110C6_M52TUB28_EU3_RHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS42_0110C6_ENG_512K_v1.1.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins\Siemens_MS42_0110C6_E46_M52TUB25_EU3_RHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs\ms42_0110C6_M52TUB25_EU3_RHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS42_0110C6_ENG_512K_v1.1.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins\Siemens_MS42_0110C6_E46_M52TUB20_EU3.bin,A:\repos\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs\ms42_0110C6_M52TUB20_EU3,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS42_0110C6_ENG_512K_v1.1.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins\Siemens_MS42_0110C6_E39_M52TUB28_EU3_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs\ms42_0110C6_E39_M52TUB28_EU3_LHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS42_0110C6_ENG_512K_v1.1.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins\Siemens_MS42_0110C6_E36Z3_M52TUB28_EU3_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs\ms42_0110C6_E36Z3_M52TUB28_EU3_LHD,all,
-# =============================================================================
-# MS43 Exports - 430069 XDF (512K) vs representative BINs
-# =============================================================================
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS43_430069_512K_1.1.3v.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins\Siemens_MS43_MS430069_E46_M54B30_EU2_RHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs\ms43_430069_M54B30_EU2_RHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS43_430069_512K_1.1.3v.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins\Siemens_MS43_MS430069_E46_M54B25_EU4_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs\ms43_430069_M54B25_EU4_LHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS43_430069_512K_1.1.3v.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins\Siemens_MS43_MS430069_E39_M54B30_EU4_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs\ms43_430069_E39_M54B30_EU4_LHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS43_430069_512K_1.1.3v.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins\Siemens_MS43_MS430069_E36Z3_M54B30_EU4_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs\ms43_430069_Z3_M54B30_EU4_LHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS43_430069_512K_1.1.3v.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins\Siemens_MS43_MS430069_E46_M52TUB28_EU4_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs\ms43_430069_M52TUB28_EU4_LHD,all,
-A:\repos\1bmw_ms42_tuning_guides\Siemens_MS43_430069_512K_1.1.3v.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins\Siemens_MS43_MS430069_E46_M54B22_EU4_LHD.bin,A:\repos\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs\ms43_430069_M54B22_EU4_LHD,all,
-# =============================================================================
-# MS45 Exports - MS45.xdf vs representative BINs
-# =============================================================================
-A:\repos\1bmw_ms42_tuning_guides\ms45_damos\MS45.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms45_bins\BMW_E60-E61_525i_2004_Benzin_139_7KWKW_Siemens_5WK93016_5WK9301_04DB_Original.bin,A:\repos\1bmw_ms42_tuning_guides\ms45_combo_output\ms45_E60_525i_original,all,
-A:\repos\1bmw_ms42_tuning_guides\ms45_damos\MS45.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms45_bins\BMW_E60-E61_520i_2004_Benzin_125KWKW_Siemens_5WK93016_Siemens_9BEE_Original.bin,A:\repos\1bmw_ms42_tuning_guides\ms45_combo_output\ms45_E60_520i_original,all,
-A:\repos\1bmw_ms42_tuning_guides\ms45_damos\MS45.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms45_bins\BMW_E83_X3-3_0i_2005_Benzin_169_9KWKW_Siemens_5WK93014_Siemens_B2D2_Original.bin,A:\repos\1bmw_ms42_tuning_guides\ms45_combo_output\ms45_E83_X3_3.0i_original,all,
-A:\repos\1bmw_ms42_tuning_guides\ms45_damos\MS45.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms45_bins\BMW_E85_Z4-3_0si_2005_236_1KWKW_Siemens_5WK93018_3FEB_Original.bin,A:\repos\1bmw_ms42_tuning_guides\ms45_combo_output\ms45_E85_Z4_3.0si_original,all,
-A:\repos\1bmw_ms42_tuning_guides\ms45_damos\MS45.xdf,A:\repos\1bmw_ms42_tuning_guides\all_ms45_bins\MS45_reference.bin,A:\repos\1bmw_ms42_tuning_guides\ms45_combo_output\ms45_reference_bin,all,
+# Portable template. Paths are relative to the directory containing this manifest.
+# Supply only files you are authorized to process; no fixtures are bundled here.
+inputs/example.xdf,inputs/example.bin,outputs/example,all,
