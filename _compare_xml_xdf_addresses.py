@@ -2,10 +2,10 @@
 MS42 Address Comparison Tool
 ------------------------------
 Compares table addresses between XML definition and XDF definition files
-for each OSID. Supports all MS42 variants.
+for explicitly mapped OSID/size pairs. Address overlap is a review signal only.
 
 Usage:
-  python _compare_xml_xdf_addresses.py [--osid 0110C6] [--verbose]
+  python _compare_xml_xdf_addresses.py --xml definitions.xml --xdf OSID_SIZE=file.xdf
 
 Output:
   Per-OSID report showing matched, mismatched, and missing tables.
@@ -17,26 +17,6 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 # =================================================================
-# Configuration
-# =================================================================
-XML_PATH = Path(r"A:\repos\MS42_ECU_Definitions_v0.39.xml")
-GUIDE_DIR = Path(r"A:\repos\1bmw_ms42_tuning_guides")
-BIN_DIR = GUIDE_DIR / "all_ms42_bins"
-BASE_OFFSET = 0x48000
-
-XDF_MAP = {
-    "0110AD_512kb": GUIDE_DIR / "MS42_01100AD_ENG_512KB.xdf",
-    "0110AD_32kb":  GUIDE_DIR / "MS42_01100AD_ENG_32KB.xdf",
-    "0110C6_512kb": GUIDE_DIR / "Siemens_MS42_0110C6_ENG_512K_v1.1.xdf",
-    "0110C6_32kb":  GUIDE_DIR / "Siemens_MS42_0110C6_ENG_32K_v1.1.xdf",
-    "0110CA_512kb": GUIDE_DIR / "Siemens_MS42_0110CA_ENG_512K_v1.0.xdf",
-    "0110CA_32kb":  GUIDE_DIR / "Siemens_MS42_0110CA_ENG_32K_v1.0.xdf",
-    "011025_512kb": GUIDE_DIR / "Siemens_MS42_011025_ENG_512K_v1.0.xdf",
-    "011025_32kb":  GUIDE_DIR / "Siemens_MS42_011025_ENG_32K_v1.0.xdf",
-}
-
-
-# =================================================================
 # XML Parser
 # =================================================================
 def parse_xml_tables(xml_path):
@@ -45,6 +25,8 @@ def parse_xml_tables(xml_path):
     root = tree.getroot()
     roms = root.findall("rom")
 
+    if not roms:
+        raise ValueError("XML definition contains no rom elements")
     base_tables = {}
     for t in roms[0].findall("table"):
         name = (t.get("name") or "").strip()
@@ -79,30 +61,25 @@ def parse_xml_tables(xml_path):
 # XDF Parser
 # =================================================================
 def parse_xdf_addresses(xdf_path):
-    """Returns {abs_address: [(type, title), ...]}."""
-    text = xdf_path.read_text(encoding="utf-8", errors="ignore")
-
-    # Get base offset
-    bm = re.search(r'BASEOFFSET\s+offset="(\d+)"', text)
-    base = int(bm.group(1)) if bm else 0
-
+    """Return direct constant/Z-storage file offsets, without guessing axis ownership."""
+    from tunerpro_xdf.xdf_addressing import file_offset
+    root = ET.parse(xdf_path).getroot()
+    base_node = root.find(".//BASEOFFSET")
+    base = int(base_node.get("offset", "0"), 0) if base_node is not None else 0
+    subtract = int(base_node.get("subtract", "0"), 0) if base_node is not None else 0
     entries = {}
-
-    for tag, pattern in [
-        ("const", r'<XDFCONSTANT[^>]*>.*?<title>(.*?)</title>.*?'
-                  r'<EMBEDDEDDATA[^>]*mmedaddress="(0x[0-9A-Fa-f]+)"'),
-        ("table", r'<XDFTABLE[^>]*>.*?<title>(.*?)</title>.*?'
-                  r'<EMBEDDEDDATA[^>]*mmedaddress="(0x[0-9A-Fa-f]+)"'),
-    ]:
-        for m in re.finditer(pattern, text, re.S):
-            title = m.group(1).strip()
-            try:
-                raw = int(m.group(2).strip(), 16)
-                addr = raw + base
-                entries.setdefault(addr, []).append((tag, title))
-            except ValueError:
-                pass
-
+    for tag, nodes in (("const", root.findall(".//XDFCONSTANT")),
+                       ("table", root.findall(".//XDFTABLE"))):
+        for node in nodes:
+            storage = node.find("EMBEDDEDDATA") if tag == "const" else node.find("XDFAXIS[@id='z']/EMBEDDEDDATA")
+            if storage is None:
+                continue
+            raw_text = storage.get("mmedaddress")
+            if raw_text is None:
+                raise ValueError("Explicit storage has no mmedaddress")
+            raw = int(raw_text, 0)
+            address = file_offset(raw, base, subtract)
+            entries.setdefault(address, []).append((tag, node.findtext("title", "Unnamed")))
     return entries, base
 
 
@@ -144,13 +121,14 @@ def scan_bins(bin_dir):
 # =================================================================
 # Main Comparison
 # =================================================================
-def compare(osid_filter=None, verbose=False):
+def compare(xml_path, xdf_map, osid_filter=None, verbose=False):
     print("=" * 70)
-    print("MS42 XML ↔ XDF Address Comparison Report")
+    print("MS42 XML / XDF Address Comparison Report (address overlap only)")
     print("=" * 70)
 
-    rom_tables, base_tables = parse_xml_tables(XML_PATH)
+    rom_tables, base_tables = parse_xml_tables(xml_path)
 
+    compared = 0
     total_matched = 0
     total_xml_only = 0
     total_xdf_only = 0
@@ -161,11 +139,12 @@ def compare(osid_filter=None, verbose=False):
             continue
 
         xdf_key = f"{osid}_{rom_key.split('_')[1]}"
-        xdf_path = XDF_MAP.get(xdf_key)
+        xdf_path = xdf_map.get(xdf_key)
         if not xdf_path or not xdf_path.exists():
             print(f"\n--- {rom_key} --- SKIPPED (no XDF at {xdf_key})")
             continue
 
+        compared += 1
         xdf_addrs, xdf_base = parse_xdf_addresses(xdf_path)
 
         print(f"\n--- {rom_key} (XDF: {xdf_path.name}, base=0x{xdf_base:X}) ---")
@@ -212,16 +191,41 @@ def compare(osid_filter=None, verbose=False):
                     print(f"    ... and {len(xml_only) - 10} more")
 
     print(f"\n{'='*70}")
+    if not compared:
+        raise ValueError("No XML ROM matched an explicitly supplied XDF mapping")
     print(f"TOTALS: {total_matched} matched, {total_xml_only} XML-only, "
           f"{total_xdf_only} XDF-only")
     print(f"{'='*70}")
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(
-        description="Compare MS42 XML and XDF table addresses")
-    parser.add_argument("--osid", help="Filter to specific OSID (e.g., 0110C6)")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                        help="Show individual table matches")
-    args = parser.parse_args()
-    compare(args.osid, args.verbose)
+        description="Compare XML/XDF address overlap; overlap alone does not prove semantic parity.")
+    parser.add_argument("--xml", type=Path, required=True, help="XML definition file")
+    parser.add_argument("--xdf", action="append", required=True, metavar="OSID_SIZE=PATH",
+                        help="Explicit mapping, e.g. 0110C6_512kb=definitions/file.xdf; repeatable")
+    parser.add_argument("--osid", help="Filter to a specific OSID")
+    parser.add_argument("--verbose", "-v", action="store_true")
+    args = parser.parse_args(argv)
+    xdf_map = {}
+    for mapping in args.xdf:
+        key, separator, value = mapping.partition("=")
+        if not separator or not key or not value:
+            parser.error("--xdf requires OSID_SIZE=PATH")
+        path = Path(value)
+        if not path.is_file():
+            parser.error(f"XDF input is not a file: {path}")
+        if key in xdf_map:
+            parser.error(f"Duplicate XDF mapping: {key}")
+        xdf_map[key] = path
+    if not args.xml.is_file():
+        parser.error(f"XML input is not a file: {args.xml}")
+    try:
+        compare(args.xml, xdf_map, args.osid, args.verbose)
+    except (OSError, ValueError, ET.ParseError) as exc:
+        parser.exit(2, f"error: {exc}\n")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

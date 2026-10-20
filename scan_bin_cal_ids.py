@@ -9,23 +9,11 @@ MS45 bins have "456" or "457" or "452" cal IDs
 
 Other bins (GS8604, SMG, Bosch ME7, etc.) should be flagged.
 """
+import argparse
 import os, re, struct, json, sys
-sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+from public_collection_cli import collection_arguments, write_report
 
-SCAN_DIRS = {
-    "all_ms42_bins": r"A:\1bmw_ms42_tuning_guides\all_ms42_bins",
-    "all_ms43_bins": r"A:\1bmw_ms42_tuning_guides\all_ms43_bins",
-    "all_ms45_bins": r"A:\1bmw_ms42_tuning_guides\all_ms45_bins",
-    "checksum_files": r"A:\1bmw_ms42_tuning_guides\checksum_files",
-    "gs8604_egs_work": r"A:\1bmw_ms42_tuning_guides\gs8604_egs_work",
-    "ms42_damos": r"A:\1bmw_ms42_tuning_guides\ms42_damos",
-    "ms42_outputs_and_bins_xdfs": r"A:\1bmw_ms42_tuning_guides\ms42_outputs_and_bins_xdfs",
-    "ms43_damos": r"A:\1bmw_ms42_tuning_guides\ms43_damos",
-    "ms43_outputs_and_bins_xdfs": r"A:\1bmw_ms42_tuning_guides\ms43_outputs_and_bins_xdfs",
-    "ms45_combo_output": r"A:\1bmw_ms42_tuning_guides\ms45_combo_output",
-    "ms45_damos": r"A:\1bmw_ms42_tuning_guides\ms45_damos",
-    "ms45_work": r"A:\1bmw_ms42_tuning_guides\ms45_work",
-}
+
 
 # Known cal ID patterns and what ECU they map to
 CAL_PATTERNS = [
@@ -112,7 +100,7 @@ def identify_bin(filepath):
         if hint in name:
             result['ecu_types_found'].add(ecu_type)
     
-    result['ecu_types_found'] = list(result['ecu_types_found'])
+    result['ecu_types_found'] = sorted(result['ecu_types_found'])
     return result
 
 
@@ -149,7 +137,9 @@ def classify_belongs(folder_name, result):
     return False, f"has {ecu_types}, expected {expected}"
 
 
-def main():
+def _main(argv=None):
+    args = collection_arguments(argparse.ArgumentParser(description="Read-only heuristic calibration ID scan; identities are hints, not qualification."), argv)
+    scan_dirs = {str(folder): folder for folder in args.folders}
     print("=" * 80)
     print("  BMW MS42/MS43/MS45 Bin Folder Scanner - Cal ID Checker")
     print("=" * 80)
@@ -158,7 +148,7 @@ def main():
     misplaced = []
     unknown = []
     
-    for folder_name, folder_path in sorted(SCAN_DIRS.items()):
+    for folder_name, folder_path in sorted(scan_dirs.items()):
         if not os.path.exists(folder_path):
             print(f"\n  [SKIP] {folder_name}: path not found")
             continue
@@ -180,7 +170,7 @@ def main():
             result = identify_bin(fpath)
             folder_results.append(result)
             
-            belongs, reason = classify_belongs(folder_name, result)
+            belongs, reason = classify_belongs(os.path.basename(folder_name), result)
             
             cal_str = ", ".join([f"{cid}({etype})" for cid, etype in result['cal_ids_found']]) or "none found"
             types_str = ", ".join(result['ecu_types_found']) or "UNKNOWN"
@@ -225,7 +215,6 @@ def main():
                 print(f"      Header strings: {result['ascii_strings'][:3]}")
     
     # Save JSON report
-    report_path = os.path.join(r"A:\1bmw_ms42_tuning_guides", "bin_cal_id_scan_report.json")
     json_data = {
         'total_files': total_bins,
         'misplaced_count': len(misplaced),
@@ -239,10 +228,22 @@ def main():
             'cal_ids': r['cal_ids_found'],
         } for r in v] for k, v in all_results.items()}
     }
-    with open(report_path, 'w') as f:
-        json.dump(json_data, f, indent=2)
-    print(f"\n  JSON report: {report_path}")
+    report = json.dumps(json_data, indent=2) + "\n"
+    write_report(args.output, report)
+    if args.output:
+        print(f"Report: {args.output}")
+    else:
+        print(report)
+    return 0
+
+
+def main(argv=None):
+    try:
+        return _main(argv)
+    except (OSError, ValueError) as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

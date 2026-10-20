@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
-"""
-1. Remove non-BMW files from all_ms43_bins that came from downloaded_ecu_files (GM/Ford/other)
-2. Remove internal hash duplicates from all_ms42_bins and all_ms43_bins
-3. Print final clean counts
-"""
-import os, hashlib, re
+"""Preview a collection cleanup; --apply copies every file into review lanes.
 
-MS42_DIR = r"A:\repos\1bmw_ms42_tuning_guides\all_ms42_bins"
-MS43_DIR = r"A:\repos\1bmw_ms42_tuning_guides\all_ms43_bins"
-MS45_DIR = r"A:\repos\1bmw_ms42_tuning_guides\all_ms45_bins"
+Unlike the historical script, this never deletes or moves source files. Unique
+files go into selected/, repeated contents into duplicate-content/, and filename
+heuristic matches into review-name-heuristic/. These hints do not identify an ECU
+or establish that a file is safe to discard. All originals remain in place.
+"""
+from __future__ import annotations
+import argparse
+from pathlib import Path
+import re
+from organize_bins import execute_plan, get_file_hash, plan_entry, source_files, validate_roots
 
 # Patterns for non-BMW files (GM, Ford, Holden, etc.)
 NON_BMW_PATTERNS = [
@@ -27,66 +29,35 @@ NON_BMW_PATTERNS = [
 
 NON_BMW_RE = re.compile('|'.join(NON_BMW_PATTERNS), re.IGNORECASE)
 
-def sha16(path):
-    h = hashlib.sha256()
-    with open(path, 'rb') as f:
-        while chunk := f.read(65536):
-            h.update(chunk)
-    return h.hexdigest()[:16]
-
-def clean_folder(folder, label):
-    removed_non_bmw = 0
-    removed_dupes = 0
-    seen_hashes = {}
-    files = sorted(os.listdir(folder))
-    
-    for fname in files:
-        fp = os.path.join(folder, fname)
-        if not os.path.isfile(fp):
-            continue
-        
-        # Remove obvious non-BMW by filename
-        if NON_BMW_RE.search(fname):
-            os.remove(fp)
-            removed_non_bmw += 1
-            print(f"  REMOVED non-BMW: {fname}")
-            continue
-        
-        # Deduplicate by hash
-        try:
-            h = sha16(fp)
-        except Exception as e:
-            print(f"  ERROR reading {fname}: {e}")
-            continue
-        
-        if h in seen_hashes:
-            # Keep the one with the more descriptive/longer name
-            existing_fname = seen_hashes[h]
-            if len(fname) > len(existing_fname):
-                # Remove existing shorter name, keep this one
-                os.remove(os.path.join(folder, existing_fname))
-                seen_hashes[h] = fname
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path, help="Collection to analyze")
+    parser.add_argument("destination", type=Path, help="Copy destination outside the source")
+    parser.add_argument("--recursive", action="store_true")
+    parser.add_argument("--apply", action="store_true", help="Copy files into review lanes")
+    args = parser.parse_args(argv)
+    try:
+        source, destination = validate_roots(args.source, args.destination)
+        entries = []
+        seen = {}
+        for path in source_files(source, recursive=args.recursive):
+            digest = get_file_hash(path)
+            if NON_BMW_RE.search(path.name):
+                lane = "review-name-heuristic"
+            elif digest in seen:
+                lane = "duplicate-content"
             else:
-                # Remove this one
-                os.remove(fp)
-            removed_dupes += 1
-        else:
-            seen_hashes[h] = fname
-    
-    remaining = len([f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))])
-    print(f"\n{label}:")
-    print(f"  Removed non-BMW: {removed_non_bmw}")
-    print(f"  Removed hash dupes: {removed_dupes}")
-    print(f"  Remaining unique files: {remaining}")
-    return remaining
+                lane = "selected"
+            entry = plan_entry(source, path, lane)
+            if digest in seen:
+                entry["same_content_as"] = seen[digest]
+            seen.setdefault(digest, path.relative_to(source).as_posix())
+            entries.append(entry)
+        execute_plan(source, destination, entries, args.apply, "cleanup-inventory.json")
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    return 0
 
-print("=== Cleaning and deduplicating bin folders ===\n")
-r42 = clean_folder(MS42_DIR, "MS42")
-r43 = clean_folder(MS43_DIR, "MS43")
-r45 = clean_folder(MS45_DIR, "MS45")
 
-print(f"\n=== FINAL TOTALS ===")
-print(f"  all_ms42_bins: {r42} unique files")
-print(f"  all_ms43_bins: {r43} unique files")
-print(f"  all_ms45_bins: {r45} unique files")
-print(f"  TOTAL: {r42+r43+r45}")
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,47 +1,16 @@
+#!/usr/bin/env python3
+"""Preview a filename-based tuning-file inventory; --apply creates copies only.
+
+Supply a source directory and an output directory outside it. Legacy filename
+and size heuristics remain hints; they do not prove ECU/XDF/tune compatibility.
+No originals are renamed, removed or moved. Existing outputs are refused.
 """
-sort_tuning_db_to_bins.py
-Scans the BMW tuning database folder, identifies MS42/MS43/MS45 ECU files,
-renames them (dots -> underscores, append .bin), and copies them to:
-  - all_ms42_bins/
-  - all_ms43_bins/
-  - all_ms45_bins/
-
-ECU identification logic:
-  MS42 (Siemens MS42) - E46 M52TU / E38 728i / E39 M52TU:
-    Software: 01100AD, 01100AB, 01100C6, 01100CA, 011025
-    Hardware: 5WK9020, 5WK90329, 5WK9037 (on E46/E38/E39 only)
-    Explicit: "MS42" in name
-    Excludes: M3, MSS53, MSS54
-
-  MS43 (Siemens MS43) - E46 M54 / E39 M54 / E53 X5:
-    Software: 430037, 430055, 430056, 430064, 430066, 430069
-    Hardware: 5WK9000x, 5WK9001x (5WK90007-5WK90019)
-    Explicit: "MS43" in name
-
-  MS45 (Siemens MS45.0/MS45.1) - E60/E61 M54 / E83 X3 / E85 Z4:
-    Hardware: 5WK93014, 5WK93016, 5WK93018, 5WK93020, 5WK93022
-    Must be ~1MB files (not 2.5MB MSV70)
-    Excludes: 5WK980xx (MSV70/N52), diesel, M5, V10
-
-Skips: .ols files, diesel-only files, M3/M5/M6 files, files > 1.5MB for MS45
-"""
-
-import os
-import re
-import shutil
+from __future__ import annotations
+import argparse
+import hashlib
 from pathlib import Path
-
-# === CONFIGURATION ===
-SRC_DIR = r"A:\TUNED FILE DATABASE [STAGE1 - STAGE 2 - STAGE 3]\Tuning_DB_BIN\BMW"
-BASE_DIR = r"A:\1bmw_ms42_tuning_guides"
-
-DST_MS42 = os.path.join(BASE_DIR, "all_ms42_bins")
-DST_MS43 = os.path.join(BASE_DIR, "all_ms43_bins")
-DST_MS45 = os.path.join(BASE_DIR, "all_ms45_bins")
-
-# Ensure destination dirs exist
-for d in [DST_MS42, DST_MS43, DST_MS45]:
-    os.makedirs(d, exist_ok=True)
+import re
+from organize_bins import execute_plan, plan_entry, source_files, validate_roots
 
 # === PATTERNS ===
 
@@ -102,7 +71,6 @@ def classify_file(name):
     """
     Returns 'ms42', 'ms43', 'ms45', or None
     """
-    upper = name.upper()
     
     # Skip excluded patterns (diesel, M3, M5, M6, .ols, etc.)
     if EXCLUDE_PATTERNS.search(name):
@@ -135,92 +103,36 @@ def classify_file(name):
     return None
 
 
-def main():
-    if not os.path.isdir(SRC_DIR):
-        print(f"ERROR: Source directory not found: {SRC_DIR}")
-        return
-
-    # Get all files
-    all_files = []
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path)
+    parser.add_argument("destination", type=Path)
+    parser.add_argument("--recursive", action="store_true", help="Include source subdirectories")
+    parser.add_argument("--apply", action="store_true", help="Create copies and a manifest")
+    args = parser.parse_args(argv)
     try:
-        all_files = os.listdir(SRC_DIR)
-    except Exception as e:
-        print(f"ERROR listing directory: {e}")
-        return
-
-    print(f"Total files in BMW tuning DB: {len(all_files)}")
-    
-    counts = {'ms42': 0, 'ms43': 0, 'ms45': 0, 'skipped': 0, 'errors': 0}
-    results = {'ms42': [], 'ms43': [], 'ms45': []}
-    
-    for fname in sorted(all_files):
-        ecu = classify_file(fname)
-        if ecu is None:
-            counts['skipped'] += 1
-            continue
-        
-        src_path = os.path.join(SRC_DIR, fname)
-        
-        # Check file size sanity
-        try:
-            fsize = os.path.getsize(src_path)
-        except:
-            counts['errors'] += 1
-            continue
-        
-        # MS42 should be ~32KB or ~512KB
-        # MS43 should be ~64KB, ~128KB, or ~512KB
-        # MS45 should be ~1MB (1048576)
-        # Skip anything over 1.5MB for MS45 (that's MSV70)    
-        if ecu == 'ms45' and fsize > 1572864:  # 1.5MB
-            counts['skipped'] += 1
-            continue
-        
-        # Skip very small files (< 16KB - probably corrupt or not a real bin)
-        if fsize < 16384:
-            counts['skipped'] += 1
-            continue
-        
-        new_name = clean_name(fname)
-        
-        if ecu == 'ms42':
-            dst_path = os.path.join(DST_MS42, new_name)
-        elif ecu == 'ms43':
-            dst_path = os.path.join(DST_MS43, new_name)
-        elif ecu == 'ms45':
-            dst_path = os.path.join(DST_MS45, new_name)
-        
-        try:
-            shutil.copy2(src_path, dst_path)
-            counts[ecu] += 1
-            results[ecu].append(f"  {fsize:>10,} bytes  {new_name}")
-        except Exception as e:
-            print(f"  ERROR copying {fname}: {e}")
-            counts['errors'] += 1
-    
-    # Print results
-    print(f"\n{'='*80}")
-    print(f"RESULTS SUMMARY")
-    print(f"{'='*80}")
-    print(f"MS42 files copied to all_ms42_bins: {counts['ms42']}")
-    print(f"MS43 files copied to all_ms43_bins: {counts['ms43']}")
-    print(f"MS45 files copied to all_ms45_bins: {counts['ms45']}")
-    print(f"Skipped (diesel/M3/M5/M6/other):   {counts['skipped']}")
-    print(f"Errors:                             {counts['errors']}")
-    
-    for ecu in ['ms42', 'ms43', 'ms45']:
-        if results[ecu]:
-            print(f"\n{'='*80}")
-            print(f"--- {ecu.upper()} FILES ({len(results[ecu])}) ---")
-            print(f"{'='*80}")
-            for line in results[ecu]:
-                print(line)
-
-    # Also check what's already in the destination folders (pre-existing files)
-    for label, dst in [('MS42', DST_MS42), ('MS43', DST_MS43), ('MS45', DST_MS45)]:
-        existing = [f for f in os.listdir(dst) if os.path.isfile(os.path.join(dst, f))]
-        print(f"\n{label} folder total files now: {len(existing)}")
+        source, destination = validate_roots(args.source, args.destination)
+        entries = []
+        skipped = 0
+        for path in source_files(source, recursive=args.recursive):
+            ecu = classify_file(path.name)
+            size = path.stat().st_size
+            if ecu is None or size < 16384 or (ecu == "ms45" and size > 1572864):
+                skipped += 1
+                continue
+            # The full source-relative name digest prevents two names normalizing
+            # to the same filename from overwriting either variant.
+            normalized = clean_name(path.name)
+            relative = path.relative_to(source)
+            identity = hashlib.sha256(relative.as_posix().encode("utf-8")).hexdigest()
+            target_name = f"{Path(normalized).stem}__{identity}.bin"
+            entries.append(plan_entry(source, path, f"all_{ecu}_bins", target_name))
+        print(f"Skipped {skipped} files by filename/size heuristics; originals remain unchanged.")
+        execute_plan(source, destination, entries, args.apply, "tuning-inventory.json")
+    except (OSError, ValueError) as error:
+        parser.error(str(error))
+    return 0
 
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -222,7 +222,12 @@ def parse_scalar_line(line: str) -> tuple[str, DisplayNumber, str] | None:
     hex_match = HEX_SCALAR_RE.match(line.rstrip())
     if hex_match:
         title, number, unit = hex_match.groups()
-        value = DisplayNumber(float(int(number, 16)), 0, number)
+        try:
+            value = DisplayNumber(float(int(number, 16)), 0, number)
+        except OverflowError as exc:
+            raise ValueError("native hexadecimal scalar is outside finite float range") from exc
+        if math.ulp(value.value) >= _display_half_unit(0):
+            raise ValueError("native hexadecimal scalar precision is finer than binary float resolution")
         return normalize_title(title), value, (unit or "").strip()
     match = SCALAR_RE.match(line.rstrip())
     if not match:
@@ -295,12 +300,14 @@ def parse_native_table(
     else:
         field_width = 8
 
-    # Letters are allowed only in the row-label prefix (literal XDF labels);
-    # the fixed-width value fields must still parse as numbers below.
+    # Every nonblank body line must survive parsing. Filtering out unreadable
+    # lines here would let a damaged capture compare successfully as a smaller
+    # table. Letters are allowed only in the row-label prefix (literal XDF
+    # labels); the value fields must still parse as numbers below.
     candidate_lines = [
         line
         for line in block[header_index + 1 :]
-        if NUMBER_TOKEN_RE.search(line)
+        if line.strip()
     ]
 
     alignments: list[
@@ -341,12 +348,14 @@ def parse_native_table(
                     tokens = line.split()
                     tail = tokens[-len(x):] if len(tokens) > len(x) else None
                     if not tail or any(NUMBER_RE.fullmatch(t) is None for t in tail):
-                        continue
+                        valid = False
+                        break
                     values = [parse_display_number(t) for t in tail]
                     prefix = " ".join(tokens[: -len(x)])
                 prefix_number = trailing_label_number(prefix)
                 if prefix and prefix_number is None:
-                    continue
+                    valid = False
+                    break
                 has_y = prefix_number is not None
                 if y_presence is None:
                     y_presence = has_y
@@ -363,10 +372,12 @@ def parse_native_table(
         fallback_y: list[DisplayNumber] = []
         fallback_data: list[list[DisplayNumber]] = []
         y_presence: bool | None = None
+        unreadable_body = False
         for line in candidate_lines:
             values = parse_concatenated_decimal_line(line)
             if values is None:
-                continue
+                unreadable_body = True
+                break
             if len(values) == len(x) + 1:
                 has_y = True
                 y_value = values[0]
@@ -376,14 +387,21 @@ def parse_native_table(
                 y_value = None
                 row = values
             else:
-                continue
+                unreadable_body = True
+                break
             if y_presence is None:
                 y_presence = has_y
             if has_y != y_presence:
-                continue
+                unreadable_body = True
+                break
             if y_value is not None:
                 fallback_y.append(y_value)
             fallback_data.append(row)
+        if unreadable_body:
+            raise ValueError(
+                f"table {title!r} occurrence {occurrence} has unreadable data rows; "
+                "partial table comparisons are not allowed"
+            )
         if not fallback_data:
             raise ValueError(
                 f"table {title!r} occurrence {occurrence} has no readable data rows"
@@ -572,7 +590,7 @@ def validate_table_evidence(table: dict[str, Any]) -> None:
             try:
                 for value in labels:
                     float(value)
-            except (TypeError, ValueError) as exc:
+            except (TypeError, ValueError, OverflowError) as exc:
                 raise ValueError(f"Exporter table {title!r}: axis {axis_id} has a nonnumeric label") from exc
     data = table.get("data")
     if data is None:
@@ -585,7 +603,7 @@ def validate_table_evidence(table: dict[str, Any]) -> None:
         for row in data:
             for value in row:
                 float(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"Exporter table {title!r}: data contains a nonnumeric cell") from exc
 
 
@@ -782,7 +800,7 @@ def compare_exports(
     for item in exported.get("scalars") or []:
         try:
             float(item.get("value"))
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"Exporter scalar {item.get('title', '')!r} has no numeric value") from exc
     for table in exported.get("tables") or []:
         validate_table_evidence(table)
@@ -1022,7 +1040,7 @@ def main() -> int:
             exported,
             args.absolute_tolerance,
         )
-    except (OSError, ValueError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, OverflowError, json.JSONDecodeError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 

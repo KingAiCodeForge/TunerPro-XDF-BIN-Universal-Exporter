@@ -1,0 +1,3135 @@
+{
+  "schema": "kingai.public-source-provenance.v1",
+  "repository": "KingAiCodeForge/TunerPro-XDF-BIN-Universal-Exporter",
+  "baseline_main": "3cc8c64a9970a448fdb18711475b0f6b21e20050",
+  "original_public_refs": [
+    {
+      "ref": "refs/remotes/origin/chatgpt/column-major-xdf-v373-20261006",
+      "commit": "a0ee7e946fb75408ba5e6fb3d0f85f3a4964e38d",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "272bf1198da6c964d85c7b8311bf12d47bc2217a"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "75e4cdcbac247d86ef188c498feeb219d551eeac"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "cad94b8db02a2a5b0c2a4fa26086f700107c9131"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "d022cad94c1108ad46520735ca7818650d5ffb12"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "e530b5a63632a735502f3c6770f528159c315cf4"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "f0a099fb94d81b53cc6f6ff7a249c38764babe36"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "c85d87bf244eb25d8e866b59d93fe803afa83d38"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "43c8f2b0ac84a9e25c9417ecffbde8d43da1f7be"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "3bd887eddf8e9e047a5b0fa68f638d5ecf1d6053"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "d86c68dfbad6cc2bf24aa0d93621b64039df85e4"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "183ebfb1c39d6e24913ac71d24af2c80c6b35652"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6d2ebb5e9f860be9411032686b7a4d7cf679594d"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/chatgpt/exporter-category-zero-parity-20261014",
+      "commit": "ee9737b2ef57f4d866a8da54c490a568cf70a1f9",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "6d6b8c25e36b85b9b8fec24737d5e1aa3195d589"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "docs/output-preservation-audit-20261014.md",
+          "mode": "100644",
+          "git_blob_sha": "1d585a5369896b4a1525731ecdc378f906140969"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7755c8993da00dc59cdd3743b442a33feeb6bd55"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "c5fb37204e84d1f11e7ba2bd6206702198ea485c"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "83c4e933d51f1cb8e5f841952f266e1821ea040a"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0dd59209650c03443371fa7879c5609f8407887f"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "1c5e094a26134e9d4785f89128be66fc1d996d75"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "57d42dc9521409eccff34fa2b6e91f9f8558e619"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0fd906f32cbcebe4ecdd635e931a75cce1de2c12"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/chatgpt/exporter-integrated-review-20261014",
+      "commit": "4a73a1323b0579db22039e239f222b36e0dee3f8",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "6d6b8c25e36b85b9b8fec24737d5e1aa3195d589"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "docs/output-preservation-audit-20261014.md",
+          "mode": "100644",
+          "git_blob_sha": "1d585a5369896b4a1525731ecdc378f906140969"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7755c8993da00dc59cdd3743b442a33feeb6bd55"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "c5fb37204e84d1f11e7ba2bd6206702198ea485c"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_native_parity_verdict.py",
+          "mode": "100644",
+          "git_blob_sha": "5a083698a12310376862af413ef8ec3296582c66"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0dd59209650c03443371fa7879c5609f8407887f"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "d279946d36fa0ddd2e40ec00dfbb3398a0e15603"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "27cb04f7ba1a704fc8745c01754b7bd510ba6e88"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0fd906f32cbcebe4ecdd635e931a75cce1de2c12"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/chatgpt/exporter-native-parity-verdict-20261014",
+      "commit": "b73899c414f0ac09a96324ff2f93ac5180ef0ebb",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "d022cad94c1108ad46520735ca7818650d5ffb12"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_native_parity_verdict.py",
+          "mode": "100644",
+          "git_blob_sha": "5a083698a12310376862af413ef8ec3296582c66"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "56926b156969cc0623b8cf3a3b2d3773aa3130ac"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "27cb04f7ba1a704fc8745c01754b7bd510ba6e88"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/chatgpt/exporter-output-preservation-20261014",
+      "commit": "c72e660c2f5aacd7a84e5400467224cf5030d06a",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "6d6b8c25e36b85b9b8fec24737d5e1aa3195d589"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "docs/output-preservation-audit-20261014.md",
+          "mode": "100644",
+          "git_blob_sha": "1d585a5369896b4a1525731ecdc378f906140969"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7755c8993da00dc59cdd3743b442a33feeb6bd55"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "c5fb37204e84d1f11e7ba2bd6206702198ea485c"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0dd59209650c03443371fa7879c5609f8407887f"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "d279946d36fa0ddd2e40ec00dfbb3398a0e15603"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "57d42dc9521409eccff34fa2b6e91f9f8558e619"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0fd906f32cbcebe4ecdd635e931a75cce1de2c12"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/chatgpt/exporter-three-fix-integration-20261015",
+      "commit": "aeae4d3591a9a74f48c16a7cdabea794cc04f9cb",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "6d6b8c25e36b85b9b8fec24737d5e1aa3195d589"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "docs/output-preservation-audit-20261014.md",
+          "mode": "100644",
+          "git_blob_sha": "1d585a5369896b4a1525731ecdc378f906140969"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7755c8993da00dc59cdd3743b442a33feeb6bd55"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "c5fb37204e84d1f11e7ba2bd6206702198ea485c"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "83c4e933d51f1cb8e5f841952f266e1821ea040a"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_native_parity_verdict.py",
+          "mode": "100644",
+          "git_blob_sha": "5a083698a12310376862af413ef8ec3296582c66"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0dd59209650c03443371fa7879c5609f8407887f"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "1c5e094a26134e9d4785f89128be66fc1d996d75"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "27cb04f7ba1a704fc8745c01754b7bd510ba6e88"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0fd906f32cbcebe4ecdd635e931a75cce1de2c12"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/chatgpt/reciprocal-inverse-v374-20261014",
+      "commit": "ec1315b743cca78811253a93e853c8d7c349d6cc",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "3a7aa8bed2aae34306fa7899059a2a42fb9ef40b"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "54c8b6924af310035ae94a12d90dfbeaa7b6cce0"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "75568c0a2f6d4153fde20bcbee020a12cc7cb98b"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "57d42dc9521409eccff34fa2b6e91f9f8558e619"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "fac7b0c74cd0ed292621074107149dbe278e1d16"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/codex/exporter-release-finalize-20261015-5ea52889",
+      "commit": "679d76eeeff5cf949487cc5ecfff88f431ece293",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "6d6b8c25e36b85b9b8fec24737d5e1aa3195d589"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "9e97310d220035799d51fd3361849b479cfc2a8e"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "docs/output-preservation-audit-20261014.md",
+          "mode": "100644",
+          "git_blob_sha": "5d7987db68257ea62d7c9670ff05aa3f1b1bb99f"
+        },
+        {
+          "path": "docs/verification-unit-parity-20261015.json",
+          "mode": "100644",
+          "git_blob_sha": "b687220e21f989010228d9aa7a32091377acdf9a"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7755c8993da00dc59cdd3743b442a33feeb6bd55"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "a3ce47d90fb2ec36c370a7811b1ca66bd88e32a0"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_axis_coordinate_evidence.py",
+          "mode": "100644",
+          "git_blob_sha": "47ac9135be59a13b1712b6080deeefc5f6252742"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "79615dd1e0589610f44321bcd0d7a620ed7e9b67"
+        },
+        {
+          "path": "test_declared_raw_variable_aliases.py",
+          "mode": "100644",
+          "git_blob_sha": "af18165607eda69ca1b9de4dfb92fc35bfb26297"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "379af97af1a084c97265d0407c8e06018e7ec4fa"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_native_parity_matrix_shape.py",
+          "mode": "100644",
+          "git_blob_sha": "ec1b0e574c94c3313b05f87f9169254130da7aca"
+        },
+        {
+          "path": "test_native_parity_unit_verdicts.py",
+          "mode": "100644",
+          "git_blob_sha": "3acb7d0990fe8922575f0b52da8f9f89d67a4d9c"
+        },
+        {
+          "path": "test_native_parity_verdict.py",
+          "mode": "100644",
+          "git_blob_sha": "2224ff71fba320eacdcd1852bf6bac1907520f40"
+        },
+        {
+          "path": "test_omitted_definition_completeness.py",
+          "mode": "100644",
+          "git_blob_sha": "476e0f14c5939a61f21dcdc1f5565cec3c680f64"
+        },
+        {
+          "path": "test_output_preservation.py",
+          "mode": "100644",
+          "git_blob_sha": "52f2e7f2f75eef8c201896c2c94ff04a8aeadade"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0dd59209650c03443371fa7879c5609f8407887f"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "67650aa73e29c91a7f86364604ab1e30cb78ffb9"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "dee6af6544f5b3cc68114e2a1cf67d20f862ac5d"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "83e41b669257aad8816157dcc8ef783ff5ef988c"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "30d106888417b42e8ea447c08eaf10e9a7f694e1"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "4a9417dd5bc2ef3af8e063ae34c755b903687796"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/codex/local-parser-sync-20261007",
+      "commit": "cf4785d8efd8419f9b9b8e71bf697c7d04a9fcdb",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "857d99bd56ad666cce7148508bf5f7f0b26882c7"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "1c610db3c9c9e8d394b3ab2001d797f1b53d3627"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "d022cad94c1108ad46520735ca7818650d5ffb12"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "56926b156969cc0623b8cf3a3b2d3773aa3130ac"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "57d42dc9521409eccff34fa2b6e91f9f8558e619"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/docs/readme-version-sync-20261020",
+      "commit": "b4c54503dd0c97ee2d29cce8a4f8bd58e0a82644",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "4412b40a70d42678a655b89c35266b96c7c7342b"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "c3b869c355365f4694ef8014d9e9a6e3ad372f64"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "5a6cc192339c26329e3918257f970da6ca4087fc"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "e9364703f6c99ad9917564fa5a4f56746f694655"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "fb9f6b1ce06eddbf1a2bf9a4719d7ad4f0fc9d06"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "394de2975b7f0d5fa390d5958ac8644de355781b"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "ce60054d625bcea02d143f53be1079a2bc5a3ab3"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "934a51198d5bd0710537c1015f382be7add398f9"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "d52c85b574fc01ec22c89ce2e1a115d73a3cc04f"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "ce96ca6cb9efaf21ad746201e39498d6212895d2"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "db1ca7f9ebd6b1f35c9dc71b43b37464fad99e03"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "b61f5640f716abb1ac2ceb471d521d3c2f5bca2a"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "718b8594f6f3d4ce6a679242d3709529a2476b3c"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "7c0170af0ca1c3bd26588520396f874342d1b547"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "064a70ab9b91db537ffd92c3bd5cefb9795f9bd9"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "0708a23f8eb57454a1f68024b8df7f3adfece235"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "44d3168432cb1c916c5f02feba66dde72e8552ca"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6705c43eccac3a5bc487e035906d6c56db2066e9"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "c35aa29d3970f425257f988f688b05c414bf4f8a"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "338fafa5068911e8bb696adf75c3fb858f7cf610"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "34d877091711847b4435b258990ef5bb6f4cc0fa"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "57d42dc9521409eccff34fa2b6e91f9f8558e619"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "68b1338dd9e5b1f3feb49fa02780a29225983c53"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "55b4d100bb6c5abf1cf570a43a8f52a21918aed7"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "df128250b085c275b93e310f0b4eea939da7f8e1"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "49e0f088567dbea12e27e5778de1072547a55862"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/main",
+      "commit": "3cc8c64a9970a448fdb18711475b0f6b21e20050",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "b74b10da387fd50a996f1e9d9c58c9435025afb8"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "b4239089410b3da8c0c4731c133e5a6b944ce20f"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "eeea60c3c5c5f5a136c7a132fa00f03e22e7e7c4"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "74c52e5851b757dfde01b93e95c2f572cb37653b"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "da05da92c49810517f242741c31b1a239f85c112"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "5b585322ec32e1330b961ba188c99614e5d9c24c"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "7d22a138d1e14d2927515b9dc8f64be089868498"
+        },
+        {
+          "path": "test_axis_coordinate_evidence.py",
+          "mode": "100644",
+          "git_blob_sha": "ca8658ac209955a4986cad6fcd2fe490f2c9c8c7"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "f1f9a10f7f58f4f8786482fa8203309acb509e24"
+        },
+        {
+          "path": "test_blocked_diagnostics.py",
+          "mode": "100644",
+          "git_blob_sha": "fb5eb6fe7e83cc692da32209c8ca0f6e6234f621"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "61ca6401c684c0924674c358ae70ab6b57c6c6e0"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "a1521ad34daf74a5d586ad1729c132ed2eebc18f"
+        },
+        {
+          "path": "test_declared_raw_variable_aliases.py",
+          "mode": "100644",
+          "git_blob_sha": "d836de2dceb71c319b5e1592f99f07a7649782b4"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "d90372d52bc157edd2cc4f834241220a3e0fa695"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "e8a68c68d7414d987a25dddbfc137928a7255e10"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "919cb4d08866bcc0ffd1521cd806243619a03792"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "96521079cccd4223caa65a6374eda6b5993df0f4"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "ac1e453b65a0dfabfba4d517dd16ee70f478ab9c"
+        },
+        {
+          "path": "test_native_parity_cli_precision.py",
+          "mode": "100644",
+          "git_blob_sha": "44103fcc311f4e52751309ec029454231dff8c19"
+        },
+        {
+          "path": "test_native_parity_matrix_shape.py",
+          "mode": "100644",
+          "git_blob_sha": "537f9a03d01f77f9a59d0221f47c1304e327efa8"
+        },
+        {
+          "path": "test_native_parity_scientific_display_precision.py",
+          "mode": "100644",
+          "git_blob_sha": "e8c9fa8f8fd2b2abca5f3bd8c9ec149a6a68e60d"
+        },
+        {
+          "path": "test_native_parity_shape.py",
+          "mode": "100644",
+          "git_blob_sha": "2a291abca701d4e5676a9640c5c8982ee56bb3c3"
+        },
+        {
+          "path": "test_native_parity_unit_verdicts.py",
+          "mode": "100644",
+          "git_blob_sha": "62cb1647c5d803dcf17fa810bd0430ee0845abfe"
+        },
+        {
+          "path": "test_native_parity_verdict.py",
+          "mode": "100644",
+          "git_blob_sha": "389464aab0d0a9383d4dcb30a9adf1f94520c122"
+        },
+        {
+          "path": "test_omitted_definition_completeness.py",
+          "mode": "100644",
+          "git_blob_sha": "6aee87b51c623bd96be3a837dd95ea42f4310a66"
+        },
+        {
+          "path": "test_output_preservation.py",
+          "mode": "100644",
+          "git_blob_sha": "6f470bab91080d45bc0a221141fe086b0e7fe87f"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "6c78ef02824b9a0a17ea152a1f0fa0d68a6ba843"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "2b009b2fdffbe9f345091ef5b8023b5351577a3f"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "cd8c56e31755a0adbcf8ef873e89633fc3a6d641"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "4a63e8b22fe698aa1b268b5228347ffd961e484f"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "1ac596bd565aa5b8059a84d615ccfdf39687a0c5"
+        },
+        {
+          "path": "test_singleton_stride_write_gate.py",
+          "mode": "100644",
+          "git_blob_sha": "d975f584d73508079fe5fe9d5e8eddf9df851277"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "98c695f96e8b87b92b94757a1e9c8441186f2c28"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "735e080e1577f9566155f3382ef3cb7bc1a794c3"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "71be4748b1858ac2faceec8f5e209781ba80d240"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "c96ac46585a54fad924445f6e49b675ccf6d7b02"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "b79fbdc3098518c41861ba98ea02f29bec112d4e"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6f5af017bad592be633f65abb76eaa8cc9404ddc"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "7e690828f29867e2d101746606cbb7220cd700a0"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "2e09bf6e67c261625fcb5b34fb350cad8cc21f70"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    },
+    {
+      "ref": "refs/remotes/origin/review/exporter-375-precision-release-candidate-20261020",
+      "commit": "31851b52c12bb55cd3ee98d6093c66c74d1f943a",
+      "files": [
+        {
+          "path": ".github/workflows/exporter-tests.yml",
+          "mode": "100644",
+          "git_blob_sha": "62d9faf3813d62463864f7016002ef81bd3e278e"
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "git_blob_sha": "6b342de54e5d2a219d50831669c2d6582de8dfcc"
+        },
+        {
+          "path": "LICENSE",
+          "mode": "100644",
+          "git_blob_sha": "b74b10da387fd50a996f1e9d9c58c9435025afb8"
+        },
+        {
+          "path": "MANIFEST.in",
+          "mode": "100644",
+          "git_blob_sha": "b4239089410b3da8c0c4731c133e5a6b944ce20f"
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "git_blob_sha": "eeea60c3c5c5f5a136c7a132fa00f03e22e7e7c4"
+        },
+        {
+          "path": "_compare_xml_xdf_addresses.py",
+          "mode": "100644",
+          "git_blob_sha": "86704071278920e43dbccd246f1be9b497b73799"
+        },
+        {
+          "path": "_validate_xdf_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "45dd8a8dbdc5cc5cbbdc0170dffa30494d273f56"
+        },
+        {
+          "path": "_validate_zeros_and_keys.py",
+          "mode": "100644",
+          "git_blob_sha": "4632f408979ac195948b3ba670ceb8cef0a6e8e3"
+        },
+        {
+          "path": "batch_ms4x_manifest.csv",
+          "mode": "100644",
+          "git_blob_sha": "30d13b05a7df48937edc264b18c4c141fd2378de"
+        },
+        {
+          "path": "bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "74c52e5851b757dfde01b93e95c2f572cb37653b"
+        },
+        {
+          "path": "check_axis_quality.py",
+          "mode": "100644",
+          "git_blob_sha": "9ed178a6a4049c024322029cd90201ab9a38511d"
+        },
+        {
+          "path": "clean_and_dedup_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "1b0d051e3e58918a0bbf4f0aa53ccbeeefe0726d"
+        },
+        {
+          "path": "csv_json_input_batch_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "7717dff208993fe9a4ac6bf484a2e999f6206cbf"
+        },
+        {
+          "path": "exporter_gui.py",
+          "mode": "100644",
+          "git_blob_sha": "7d278975b89703a7adf6a9c8518504c83172bafc"
+        },
+        {
+          "path": "hash_dedup_dualmode.py",
+          "mode": "100644",
+          "git_blob_sha": "47fd0be2150e6c63c09b6a33b5c873a5cc044a0f"
+        },
+        {
+          "path": "install.bat",
+          "mode": "100644",
+          "git_blob_sha": "afe98bcb912a4b8202043dbac1844492395a007c"
+        },
+        {
+          "path": "launch_cli.bat",
+          "mode": "100644",
+          "git_blob_sha": "0473164cfb6bd0d63ff4b2ab7f95235ebd6262d3"
+        },
+        {
+          "path": "launch_gui.bat",
+          "mode": "100644",
+          "git_blob_sha": "7c99f9293bec66c4d57966cbb66be4bc687186f4"
+        },
+        {
+          "path": "organize_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "9f9884b9b8d1c42c7b6d6a7a9c974b8bf3af3a74"
+        },
+        {
+          "path": "pyproject.toml",
+          "mode": "100644",
+          "git_blob_sha": "da05da92c49810517f242741c31b1a239f85c112"
+        },
+        {
+          "path": "quick_scan.py",
+          "mode": "100644",
+          "git_blob_sha": "9eadc11784deb72e2ae4d43387e030bed00fed56"
+        },
+        {
+          "path": "requirements.txt",
+          "mode": "100644",
+          "git_blob_sha": "52324bd32d343376f41c71da0f7012f4cffe2924"
+        },
+        {
+          "path": "run_regression_suite.py",
+          "mode": "100644",
+          "git_blob_sha": "a8c7dd0f1f81d0393389d39f99feabcd566060e0"
+        },
+        {
+          "path": "scan_bin_cal_ids.py",
+          "mode": "100644",
+          "git_blob_sha": "14a6708c516b6dad01ca336885e4137eefe29663"
+        },
+        {
+          "path": "sort_tuning_db_to_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "bfe91805cf29dacc901f53be4d2df402141a9a1d"
+        },
+        {
+          "path": "test_address_type_var.py",
+          "mode": "100644",
+          "git_blob_sha": "5b585322ec32e1330b961ba188c99614e5d9c24c"
+        },
+        {
+          "path": "test_addressing_and_scoped_math.py",
+          "mode": "100644",
+          "git_blob_sha": "7d22a138d1e14d2927515b9dc8f64be089868498"
+        },
+        {
+          "path": "test_axis_coordinate_evidence.py",
+          "mode": "100644",
+          "git_blob_sha": "ca8658ac209955a4986cad6fcd2fe490f2c9c8c7"
+        },
+        {
+          "path": "test_binary_size_validation.py",
+          "mode": "100644",
+          "git_blob_sha": "f1f9a10f7f58f4f8786482fa8203309acb509e24"
+        },
+        {
+          "path": "test_blocked_diagnostics.py",
+          "mode": "100644",
+          "git_blob_sha": "fb5eb6fe7e83cc692da32209c8ca0f6e6234f621"
+        },
+        {
+          "path": "test_bmw_0pa_0da_to_bin.py",
+          "mode": "100644",
+          "git_blob_sha": "61ca6401c684c0924674c358ae70ab6b57c6c6e0"
+        },
+        {
+          "path": "test_category_resolution.py",
+          "mode": "100644",
+          "git_blob_sha": "a1521ad34daf74a5d586ad1729c132ed2eebc18f"
+        },
+        {
+          "path": "test_declared_raw_variable_aliases.py",
+          "mode": "100644",
+          "git_blob_sha": "d836de2dceb71c319b5e1592f99f07a7649782b4"
+        },
+        {
+          "path": "test_diagnostics_zero_tables.py",
+          "mode": "100644",
+          "git_blob_sha": "d90372d52bc157edd2cc4f834241220a3e0fa695"
+        },
+        {
+          "path": "test_float_cells_and_literal_labels.py",
+          "mode": "100644",
+          "git_blob_sha": "e8a68c68d7414d987a25dddbfc137928a7255e10"
+        },
+        {
+          "path": "test_legacy_xdf_support.py",
+          "mode": "100644",
+          "git_blob_sha": "919cb4d08866bcc0ffd1521cd806243619a03792"
+        },
+        {
+          "path": "test_multibit_flag_state.py",
+          "mode": "100644",
+          "git_blob_sha": "96521079cccd4223caa65a6374eda6b5993df0f4"
+        },
+        {
+          "path": "test_native_binary_xdf_detection.py",
+          "mode": "100644",
+          "git_blob_sha": "ac1e453b65a0dfabfba4d517dd16ee70f478ab9c"
+        },
+        {
+          "path": "test_native_parity_cli_precision.py",
+          "mode": "100644",
+          "git_blob_sha": "44103fcc311f4e52751309ec029454231dff8c19"
+        },
+        {
+          "path": "test_native_parity_matrix_shape.py",
+          "mode": "100644",
+          "git_blob_sha": "537f9a03d01f77f9a59d0221f47c1304e327efa8"
+        },
+        {
+          "path": "test_native_parity_scientific_display_precision.py",
+          "mode": "100644",
+          "git_blob_sha": "e8c9fa8f8fd2b2abca5f3bd8c9ec149a6a68e60d"
+        },
+        {
+          "path": "test_native_parity_shape.py",
+          "mode": "100644",
+          "git_blob_sha": "2a291abca701d4e5676a9640c5c8982ee56bb3c3"
+        },
+        {
+          "path": "test_native_parity_unit_verdicts.py",
+          "mode": "100644",
+          "git_blob_sha": "62cb1647c5d803dcf17fa810bd0430ee0845abfe"
+        },
+        {
+          "path": "test_native_parity_verdict.py",
+          "mode": "100644",
+          "git_blob_sha": "389464aab0d0a9383d4dcb30a9adf1f94520c122"
+        },
+        {
+          "path": "test_omitted_definition_completeness.py",
+          "mode": "100644",
+          "git_blob_sha": "6aee87b51c623bd96be3a837dd95ea42f4310a66"
+        },
+        {
+          "path": "test_output_preservation.py",
+          "mode": "100644",
+          "git_blob_sha": "6f470bab91080d45bc0a221141fe086b0e7fe87f"
+        },
+        {
+          "path": "test_output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "6c78ef02824b9a0a17ea152a1f0fa0d68a6ba843"
+        },
+        {
+          "path": "test_release_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "2b009b2fdffbe9f345091ef5b8023b5351577a3f"
+        },
+        {
+          "path": "test_scalar_export_errors.py",
+          "mode": "100644",
+          "git_blob_sha": "cd8c56e31755a0adbcf8ef873e89633fc3a6d641"
+        },
+        {
+          "path": "test_shared_xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "4a63e8b22fe698aa1b268b5228347ffd961e484f"
+        },
+        {
+          "path": "test_shared_xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "1ac596bd565aa5b8059a84d615ccfdf39687a0c5"
+        },
+        {
+          "path": "test_singleton_stride_write_gate.py",
+          "mode": "100644",
+          "git_blob_sha": "d975f584d73508079fe5fe9d5e8eddf9df851277"
+        },
+        {
+          "path": "test_tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "98c695f96e8b87b92b94757a1e9c8441186f2c28"
+        },
+        {
+          "path": "tunerpro_exporter.py",
+          "mode": "100644",
+          "git_blob_sha": "735e080e1577f9566155f3382ef3cb7bc1a794c3"
+        },
+        {
+          "path": "tunerpro_native_export_parity.py",
+          "mode": "100644",
+          "git_blob_sha": "71be4748b1858ac2faceec8f5e209781ba80d240"
+        },
+        {
+          "path": "tunerpro_xdf/__init__.py",
+          "mode": "100644",
+          "git_blob_sha": "c96ac46585a54fad924445f6e49b675ccf6d7b02"
+        },
+        {
+          "path": "tunerpro_xdf/output_safety.py",
+          "mode": "100644",
+          "git_blob_sha": "b79fbdc3098518c41861ba98ea02f29bec112d4e"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_addressing.py",
+          "mode": "100644",
+          "git_blob_sha": "6f5af017bad592be633f65abb76eaa8cc9404ddc"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_equations.py",
+          "mode": "100644",
+          "git_blob_sha": "7e690828f29867e2d101746606cbb7220cd700a0"
+        },
+        {
+          "path": "tunerpro_xdf/xdf_values.py",
+          "mode": "100644",
+          "git_blob_sha": "2e09bf6e67c261625fcb5b34fb350cad8cc21f70"
+        },
+        {
+          "path": "verify_bins.py",
+          "mode": "100644",
+          "git_blob_sha": "3bc39556bbe56324bac915b3bdc8098a8607800a"
+        }
+      ]
+    }
+  ],
+  "preservation": "All original remote refs retained; complete original bundle held locally; no private-source imports."
+}

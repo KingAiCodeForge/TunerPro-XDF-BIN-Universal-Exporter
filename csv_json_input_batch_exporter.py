@@ -1,353 +1,146 @@
 #!/usr/bin/env python3
+"""Export explicit XDF/BIN pairs from a CSV or JSON manifest.
+
+Required keys: xdf, bin, output. Optional: format (txt/json/md/csv/all),
+options (--addresses --flip-rpm --flip-load --no-stats). Relative paths are
+resolved beside the manifest, independent of the current working directory.
+All jobs are validated before any output is created; existing files are refused.
 """
-===============================================================================
- KingAI Batch Exporter - CSV / JSON Input Processor
-===============================================================================
-
- Reads a CSV or JSON manifest that specifies XDF + BIN pairs and output paths,
- then runs the TunerPro Universal Exporter on every row.
-
- CSV Format (header row required)::
-
-   xdf,bin,output,format,options
-   C:/defs/MS42.xdf,C:/bins/MS42.bin,C:/out/ms42_export,all,--addresses
-   C:/defs/MS43.xdf,C:/bins/MS43.bin,C:/out/ms43_export,all,
-
- JSON Format (array of objects)::
-
-   [
-     {
-       "xdf": "C:/defs/MS42.xdf",
-       "bin": "C:/bins/MS42.bin",
-       "output": "C:/out/ms42_export",
-       "format": "all",
-       "options": "--addresses"
-     }
-   ]
-
- Fields:
-   xdf      - (required) path to XDF definition file
-   bin      - (required) path to BIN firmware file
-   output   - (required) output base path (extension set by format)
-   format   - (optional) txt | json | md | csv | all  (default: all)
-   options  - (optional) space-separated flags: --addresses --flip-rpm
-              --flip-load --no-stats
-
-===============================================================================
- Author:  Jason King  |  GitHub: KingAiCodeForge  |  KingAI PTY LTD
-===============================================================================
-"""
-
+import argparse
 import csv
 import json
-import sys
-import os
-import io
-import time
+import shlex
 from pathlib import Path
-from datetime import datetime
-
-# ---------------------------------------------------------------------------
-# Ensure we can import the exporter from the same directory
-# ---------------------------------------------------------------------------
-SCRIPT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(SCRIPT_DIR))
 
 from tunerpro_exporter import UniversalXDFExporter, __version__, safe_print
+from tunerpro_xdf.output_safety import assert_safe_output_plan
+
+FORMATS = {"text": "txt", "markdown": "md"}
+ALLOWED_OPTIONS = {"--addresses", "--flip-rpm", "--flip-load", "--no-stats"}
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+def _normalise_row(row, source, base_dir=None):
+    if not isinstance(row, dict):
+        raise ValueError(f"{source}: manifest entry must be an object")
+    if None in row:
+        raise ValueError(f"{source}: too many CSV fields")
+    row = {str(k).strip().lower(): v for k, v in row.items()}
+    base_dir = Path(base_dir) if base_dir is not None else Path.cwd()
+    paths = {}
+    for key in ("xdf", "bin", "output"):
+        value = row.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{source}: missing or invalid '{key}' path")
+        path = Path(value.strip())
+        paths[key] = str((base_dir / path).resolve() if not path.is_absolute() else path.resolve())
+        if key != "output" and not Path(paths[key]).is_file():
+            raise ValueError(f"{source}: {key} file not found: {path}")
+    fmt = str(row.get("format") or "all").strip().lower()
+    fmt = FORMATS.get(fmt, fmt)
+    if fmt not in ("txt", "json", "md", "csv", "all"):
+        raise ValueError(f"{source}: unsupported format: {fmt}")
+    options = row.get("options") or ""
+    if not isinstance(options, str):
+        raise ValueError(f"{source}: options must be a string of supported flags")
+    tokens = shlex.split(options)
+    unknown = set(tokens) - ALLOWED_OPTIONS
+    if unknown:
+        raise ValueError(f"{source}: unsupported options: {', '.join(sorted(unknown))}")
+    return dict(paths, format=fmt, source=source,
+                addresses="--addresses" in tokens, flip_rpm="--flip-rpm" in tokens,
+                flip_load="--flip-load" in tokens, no_stats="--no-stats" in tokens)
 
-def load_manifest_csv(csv_path: str) -> list[dict]:
-    """Load a CSV manifest file and return a list of job dicts."""
-    jobs = []
-    with open(csv_path, newline="", encoding="utf-8-sig") as f:
-        # Pre-filter: skip blank lines and comment lines (# ...)
-        lines = [line for line in f if line.strip() and not line.strip().startswith("#")]
-    reader = csv.DictReader(lines)
-    # Normalise header names (strip whitespace, lowercase)
-    reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
-    for row_num, row in enumerate(reader, start=2):  # 2 because row 1 is the header
-        job = _normalise_row(row, source=f"{csv_path}:{row_num}")
-        if job:
-            jobs.append(job)
-    return jobs
+
+def load_manifest_csv(csv_path):
+    path = Path(csv_path).resolve()
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        lines = [line for line in stream if line.strip() and not line.lstrip().startswith("#")]
+    reader = csv.DictReader(lines, delimiter="\t" if path.suffix.lower() == ".tsv" else ",")
+    if not reader.fieldnames:
+        raise ValueError("CSV manifest is empty or lacks a header")
+    reader.fieldnames = [name.strip().lower() for name in reader.fieldnames]
+    if len(reader.fieldnames) != len(set(reader.fieldnames)):
+        raise ValueError("CSV manifest contains duplicate headers")
+    if not {"xdf", "bin", "output"}.issubset(reader.fieldnames):
+        raise ValueError("CSV manifest requires xdf, bin and output headers")
+    return [_normalise_row(row, f"{path.name}:{number}", path.parent)
+            for number, row in enumerate(reader, start=2)]
 
 
-def load_manifest_json(json_path: str) -> list[dict]:
-    """Load a JSON manifest file and return a list of job dicts."""
-    with open(json_path, encoding="utf-8-sig") as f:
-        data = json.load(f)
+def load_manifest_json(json_path):
+    path = Path(json_path).resolve()
+    with path.open(encoding="utf-8-sig") as stream:
+        data = json.load(stream)
     if isinstance(data, dict):
-        data = [data]  # single entry convenience
-    jobs = []
-    for idx, entry in enumerate(data):
-        # Normalise keys
-        entry = {k.strip().lower(): v for k, v in entry.items()}
-        job = _normalise_row(entry, source=f"{json_path}[{idx}]")
-        if job:
-            jobs.append(job)
-    return jobs
+        data = [data]
+    if not isinstance(data, list):
+        raise ValueError("JSON manifest must be an object or array of objects")
+    return [_normalise_row(row, f"{path.name}[{index}]", path.parent)
+            for index, row in enumerate(data)]
 
 
-def _normalise_row(row: dict, source: str) -> dict | None:
-    """Validate and normalise a single manifest row into a job dict."""
-    xdf = (row.get("xdf") or "").strip()
-    bin_ = (row.get("bin") or "").strip()
-    output = (row.get("output") or "").strip()
-    fmt = (row.get("format") or "all").strip().lower()
-    options = (row.get("options") or "").strip()
-
-    # --- Validation ---
-    errors = []
-    if not xdf:
-        errors.append("missing 'xdf' path")
-    elif not Path(xdf).is_file():
-        errors.append(f"xdf not found: {xdf}")
-
-    if not bin_:
-        errors.append("missing 'bin' path")
-    elif not Path(bin_).is_file():
-        errors.append(f"bin not found: {bin_}")
-
-    if not output:
-        errors.append("missing 'output' path")
-
-    if fmt not in ("txt", "text", "json", "md", "markdown", "csv", "all"):
-        errors.append(f"unknown format '{fmt}' (use txt/json/md/csv/all)")
-
-    if errors:
-        safe_print(f"  [SKIP] {source}: {'; '.join(errors)}")
-        return None
-
-    # Parse option flags
-    opt_tokens = options.split() if options else []
-    return {
-        "xdf": xdf,
-        "bin": bin_,
-        "output": output,
-        "format": fmt if fmt != "text" else "txt",
-        "addresses": "--addresses" in opt_tokens,
-        "flip_rpm": "--flip-rpm" in opt_tokens,
-        "flip_load": "--flip-load" in opt_tokens,
-        "no_stats": "--no-stats" in opt_tokens,
-        "source": source,
-    }
+def output_plan(job):
+    base = Path(job["output"])
+    formats = ("txt", "json", "md", "csv") if job["format"] == "all" else (job["format"],)
+    return [(fmt, str(base.parent / f"{base.stem}.{fmt}") if job["format"] == "all" else str(base))
+            for fmt in formats]
 
 
-def run_single_export(job: dict) -> dict:
-    """
-    Run one export job.  Returns a result dict with keys:
-      ok (bool), xdf, bin, outputs (list of (fmt, path)), errors (list of str)
-    """
-    result = {
-        "ok": False,
-        "xdf": job["xdf"],
-        "bin": job["bin"],
-        "outputs": [],
-        "errors": [],
-    }
+def validate_batch_plan(jobs, manifest_path=None):
+    outputs = [path for job in jobs for _, path in output_plan(job)]
+    protected = [path for job in jobs for path in (job["xdf"], job["bin"])]
+    if manifest_path:
+        protected.append(manifest_path)
+    assert_safe_output_plan(outputs, protected)
 
+
+def run_single_export(job):
+    result = {"ok": False, "xdf": job["xdf"], "bin": job["bin"], "outputs": [], "errors": []}
     try:
+        validate_batch_plan([job])
         exporter = UniversalXDFExporter(job["xdf"], job["bin"])
-        exporter.show_addresses = job["addresses"]
-        exporter.flip_rpm = job["flip_rpm"]
-        exporter.flip_load = job["flip_load"]
-        exporter.no_stats = job["no_stats"]
-
+        for flag in ("addresses", "flip_rpm", "flip_load", "no_stats"):
+            setattr(exporter, "show_addresses" if flag == "addresses" else flag, job[flag])
         if not exporter.validate_bin_file():
-            result["errors"].append("binary validation failed")
-            return result
-
+            raise ValueError("BIN validation failed")
         if not exporter.parse_xdf():
-            result["errors"].append("XDF parsing failed")
-            return result
-
-        export_format = job["format"]
-        output_base = job["output"]
-        base_path = Path(output_base)
-        base_name = base_path.stem
-        base_dir = base_path.parent
-
-        # Make sure output directory exists
-        base_dir.mkdir(parents=True, exist_ok=True)
-
-        any_ok = False
-
-        if export_format in ("txt", "all"):
-            p = str(base_dir / f"{base_name}.txt") if export_format == "all" else output_base
-            if exporter.export_to_text(p):
-                result["outputs"].append(("TXT", p))
-                any_ok = True
-            else:
-                result["errors"].append(f"TXT export failed -> {p}")
-
-        if export_format in ("json", "all"):
-            p = str(base_dir / f"{base_name}.json") if export_format == "all" else output_base
-            if exporter.export_to_json(p):
-                result["outputs"].append(("JSON", p))
-                any_ok = True
-            else:
-                result["errors"].append(f"JSON export failed -> {p}")
-
-        if export_format in ("md", "markdown", "all"):
-            p = str(base_dir / f"{base_name}.md") if export_format == "all" else output_base
-            if exporter.export_to_markdown(p):
-                result["outputs"].append(("MD", p))
-                any_ok = True
-            else:
-                result["errors"].append(f"MD export failed -> {p}")
-
-        if export_format in ("csv", "all"):
-            p = str(base_dir / f"{base_name}.csv") if export_format == "all" else output_base
-            if exporter.export_to_csv(p):
-                result["outputs"].append(("CSV", p))
-                any_ok = True
-            else:
-                result["errors"].append(f"CSV export failed -> {p}")
-
-        result["ok"] = any_ok
-
-        # Print element counts for this job
-        n_scalars = len(exporter.elements["constants"])
-        n_flags = len(exporter.elements["flags"])
-        n_tables = len(exporter.elements["tables"])
-        n_patches = len(exporter.elements["patches"])
-        safe_print(
-            f"    Elements: {n_scalars} scalars, {n_flags} flags, "
-            f"{n_tables} tables, {n_patches} patches"
-        )
-
+            raise ValueError("XDF parsing failed")
+        writers = {"txt": exporter.export_to_text, "json": exporter.export_to_json,
+                   "md": exporter.export_to_markdown, "csv": exporter.export_to_csv}
+        for fmt, path in output_plan(job):
+            if not writers[fmt](path):
+                raise RuntimeError(f"{fmt.upper()} export failed: {path}")
+            result["outputs"].append((fmt.upper(), path))
+        result["ok"] = True
     except Exception as exc:
-        result["errors"].append(f"exception: {exc}")
-
+        result["errors"].append(str(exc))
     return result
 
 
-# ---------------------------------------------------------------------------
-# Main entry point
-# ---------------------------------------------------------------------------
-
-def main():
-    if len(sys.argv) < 2:
-        print("=" * 70)
-        print("  KingAI Batch Exporter - CSV / JSON Input Processor")
-        print("=" * 70)
-        print(f"  Version: {__version__}")
-        print()
-        print("Usage:")
-        print(f"  python {Path(__file__).name} <manifest.csv|manifest.json>")
-        print()
-        print("CSV format (one job per row, header required):")
-        print("  xdf,bin,output,format,options")
-        print("  C:\\defs\\MS42.xdf,C:\\bins\\MS42.bin,C:\\out\\ms42_export,all,--addresses")
-        print()
-        print("JSON format (array of objects):")
-        print('  [{"xdf":"...", "bin":"...", "output":"...", "format":"all", "options":""}]')
-        print()
-        print("Fields:")
-        print("  xdf      - path to XDF definition file       (required)")
-        print("  bin      - path to BIN firmware file          (required)")
-        print("  output   - output base path                   (required)")
-        print("  format   - txt | json | md | csv | all        (default: all)")
-        print("  options  - --addresses --flip-rpm --flip-load --no-stats")
-        print()
-        print("The exporter writes FULL outputs for every job (no truncation).")
-        print("=" * 70)
-        sys.exit(1)
-
-    manifest_path = sys.argv[1]
-
-    if not Path(manifest_path).is_file():
-        safe_print(f"[ERROR] Manifest file not found: {manifest_path}")
-        sys.exit(1)
-
-    # Detect format by extension
-    ext = Path(manifest_path).suffix.lower()
-    if ext == ".json":
-        jobs = load_manifest_json(manifest_path)
-    elif ext in (".csv", ".tsv", ".txt"):
-        jobs = load_manifest_csv(manifest_path)
-    else:
-        # Try JSON first, fall back to CSV
-        try:
-            jobs = load_manifest_json(manifest_path)
-        except (json.JSONDecodeError, ValueError):
-            jobs = load_manifest_csv(manifest_path)
-
-    if not jobs:
-        safe_print("[ERROR] No valid jobs found in manifest. Check paths and format.")
-        sys.exit(1)
-
-    # ----- Banner -----
-    print()
-    print("=" * 70)
-    print("  KingAI Batch Exporter")
-    print("=" * 70)
-    print(f"  Manifest : {manifest_path}")
-    print(f"  Jobs     : {len(jobs)}")
-    print(f"  Started  : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 70)
-    print()
-
-    # ----- Run jobs -----
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("manifest", type=Path, help="CSV, TSV or JSON manifest")
+    args = parser.parse_args(argv)
+    try:
+        if not args.manifest.is_file():
+            raise ValueError(f"Manifest file not found: {args.manifest}")
+        jobs = load_manifest_json(args.manifest) if args.manifest.suffix.lower() == ".json" else load_manifest_csv(args.manifest)
+        if not jobs:
+            raise ValueError("Manifest contains no jobs")
+        validate_batch_plan(jobs, args.manifest)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     results = []
-    t_start = time.time()
-
-    for idx, job in enumerate(jobs, start=1):
-        print("-" * 70)
-        safe_print(f"  [{idx}/{len(jobs)}] {Path(job['xdf']).name}  +  {Path(job['bin']).name}")
-        safe_print(f"    -> {job['output']}  (format={job['format']})")
-
-        res = run_single_export(job)
-        results.append(res)
-
-        if res["ok"]:
-            for fmt, path in res["outputs"]:
-                safe_print(f"    [OK]  {fmt} -> {path}")
-        if res["errors"]:
-            for err in res["errors"]:
-                safe_print(f"    [FAIL] {err}")
-        print()
-
-    elapsed = time.time() - t_start
-
-    # ----- Summary -----
-    passed = sum(1 for r in results if r["ok"])
-    failed = len(results) - passed
-    total_files = sum(len(r["outputs"]) for r in results)
-
-    print("=" * 70)
-    safe_print("  BATCH SUMMARY")
-    print("=" * 70)
-    print(f"  Total jobs : {len(results)}")
-    safe_print(f"  Passed     : {passed}")
-    if failed:
-        safe_print(f"  Failed     : {failed}")
-    print(f"  Files made : {total_files}")
-    print(f"  Time       : {elapsed:.1f}s")
-    print("=" * 70)
-
-    if failed:
-        print()
-        safe_print("  Failed jobs:")
-        for r in results:
-            if not r["ok"]:
-                safe_print(f"    XDF: {r['xdf']}")
-                safe_print(f"    BIN: {r['bin']}")
-                for e in r["errors"]:
-                    safe_print(f"      -> {e}")
-                print()
-
-    print()
-    safe_print(f"  Exporter v{__version__}  |  KingAI Batch Processor")
-    print()
-
-    sys.exit(0 if failed == 0 else 1)
+    for index, job in enumerate(jobs, start=1):
+        safe_print(f"[{index}/{len(jobs)}] {Path(job['xdf']).name} + {Path(job['bin']).name}")
+        result = run_single_export(job)
+        results.append(result)
+        for error in result["errors"]:
+            safe_print(f"[FAIL] {error}")
+    failed = sum(not result["ok"] for result in results)
+    safe_print(f"Exporter {__version__}: jobs={len(results)} passed={len(results)-failed} failed={failed}")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
-
+    raise SystemExit(main())
