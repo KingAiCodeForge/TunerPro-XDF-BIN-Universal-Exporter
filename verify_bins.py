@@ -6,16 +6,12 @@ import argparse
 import os
 from pathlib import Path
 
+# Bounded scanner memory irrespective of BIN length; retain the full file-size
+# report and the same first-match offsets/contexts as the original implementation.
+SCAN_BLOCK_SIZE = 1024 * 1024
+
+
 def check_strings(filepath):
-    results = {}
-    try:
-        with open(filepath, 'rb') as f:
-            data = f.read()
-    except OSError as exc:
-        raise ValueError(f'Cannot read {filepath}: {exc}') from exc
-
-    results['size'] = len(data)
-
     sw_versions = ['0110C6', '0110CA', '0110AD', '0110AB', '0110SA', '011025',
                    '430069', '430066', '430064', '430056', '430055', '430037', '430070',
                    '43X001', '0060041',
@@ -23,18 +19,46 @@ def check_strings(filepath):
                    '5WK90', '5WK93', '5WK98',
                    'MS42', 'MS43', 'MS45', 'MSV70', 'MS41',
                    'SIEMENS', 'Siemens']
+    signatures = [(sw, sw.encode('ascii')) for sw in sw_versions]
+    overlap = max(len(raw) for _, raw in signatures) - 1
+    hits = {}
+    try:
+        with open(filepath, 'rb') as stream:
+            stream.seek(0, os.SEEK_END)
+            size = stream.tell()
+            stream.seek(0)
+            scanned = 0
+            tail = b''
+            while chunk := stream.read(SCAN_BLOCK_SIZE):
+                window = tail + chunk
+                origin = scanned - len(tail)
+                for sw, raw in signatures:
+                    if sw in hits:
+                        continue
+                    index = window.find(raw)
+                    if index >= 0:
+                        hits[sw] = origin + index
+                scanned += len(chunk)
+                tail = window[-overlap:]
+                if len(hits) == len(signatures):
+                    break
 
-    for sw in sw_versions:
-        sb = sw.encode('ascii')
-        idx = data.find(sb)
-        if idx >= 0:
-            ctx_start = max(0, idx - 4)
-            ctx_end = min(len(data), idx + len(sb) + 20)
-            ctx = data[ctx_start:ctx_end]
-            ctx_str = ''.join(chr(b) if 32 <= b < 127 else '.' for b in ctx)
-            results[sw] = f'@0x{idx:05X} [{ctx_str}]'
+            results = {'size': size}
+            # Seek back only for found markers, avoiding a whole-image RAM copy.
+            for sw, raw in signatures:
+                index = hits.get(sw)
+                if index is None:
+                    continue
+                before = max(0, index - 4)
+                after = min(size, index + len(raw) + 20)
+                stream.seek(before)
+                context = stream.read(after - before)
+                printable = ''.join(chr(b) if 32 <= b < 127 else '.' for b in context)
+                results[sw] = f'@0x{index:05X} [{printable}]'
+            return results
+    except OSError as exc:
+        raise ValueError(f'Cannot read {filepath}: {exc}') from exc
 
-    return results
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read-only heuristic firmware string inventory; no ECU identity certification.")
