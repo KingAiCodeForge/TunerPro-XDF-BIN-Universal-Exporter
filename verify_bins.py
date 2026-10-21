@@ -4,37 +4,69 @@ review signals; exact ECU identity and compatibility require independent evidenc
 """
 import argparse
 import os
+import stat
 from pathlib import Path
 
+SW_VERSIONS = ['0110C6', '0110CA', '0110AD', '0110AB', '0110SA', '011025',
+               '430069', '430066', '430064', '430056', '430055', '430037', '430070',
+               '43X001', '0060041', '4560', '457L', '456B',
+               '5WK90', '5WK93', '5WK98',
+               'MS42', 'MS43', 'MS45', 'MSV70', 'MS41', 'SIEMENS', 'Siemens']
+MAX_CHUNK = 64 * 1024
+CONTEXT_BEFORE = 4
+CONTEXT_AFTER = 20
+TAIL_SIZE = max(map(len, SW_VERSIONS)) + CONTEXT_BEFORE + CONTEXT_AFTER
+
+
 def check_strings(filepath):
-    results = {}
+    """Read in <=64 KiB chunks; find every marker's first offset and context.
+
+    Maintains enough overlap for split identifiers and the full context window.
+    Does not load the whole ECU/TCU image. Fails if metadata changes mid-read.
+    """
+    path = Path(filepath)
     try:
-        with open(filepath, 'rb') as f:
-            data = f.read()
+        before = path.lstat()
+        if not stat.S_ISREG(before.st_mode) or getattr(before, 'st_file_attributes', 0) & 0x400:
+            raise ValueError('Not an ordinary firmware file')
+        found = {}
+        offset = 0
+        tail = b''
+        with path.open('rb') as stream:
+            while True:
+                chunk = stream.read(MAX_CHUNK)
+                if not chunk:
+                    break
+                view = tail + chunk
+                start = offset - len(tail)
+                offset += len(chunk)
+                for sw in SW_VERSIONS:
+                    if sw in found:
+                        continue
+                    sb = sw.encode('ascii')
+                    i = view.find(sb)
+                    if i >= 0 and i + len(sb) + CONTEXT_AFTER <= len(view):
+                        context = view[max(0, i - CONTEXT_BEFORE):i + len(sb) + CONTEXT_AFTER]
+                        printable = ''.join(chr(c) if 32 <= c < 127 else '.' for c in context)
+                        found[sw] = f'@0x{start + i:05X} [{printable}]'
+                tail = view[-TAIL_SIZE:]
+        # End of stream: accept naturally shortened right context.
+        start = offset - len(tail)
+        for sw in SW_VERSIONS:
+            if sw not in found:
+                sb = sw.encode('ascii')
+                i = tail.find(sb)
+                if i >= 0:
+                    context = tail[max(0, i - CONTEXT_BEFORE):i + len(sb) + CONTEXT_AFTER]
+                    printable = ''.join(chr(c) if 32 <= c < 127 else '.' for c in context)
+                    found[sw] = f'@0x{start + i:05X} [{printable}]'
+        after = path.lstat()
+        key = lambda st:(st.st_size,st.st_mtime_ns,st.st_ctime_ns,st.st_dev,st.st_ino)
+        if offset != before.st_size or key(before) != key(after):
+            raise ValueError('Firmware changed while scanning')
     except OSError as exc:
         raise ValueError(f'Cannot read {filepath}: {exc}') from exc
-
-    results['size'] = len(data)
-
-    sw_versions = ['0110C6', '0110CA', '0110AD', '0110AB', '0110SA', '011025',
-                   '430069', '430066', '430064', '430056', '430055', '430037', '430070',
-                   '43X001', '0060041',
-                   '4560', '457L', '456B',
-                   '5WK90', '5WK93', '5WK98',
-                   'MS42', 'MS43', 'MS45', 'MSV70', 'MS41',
-                   'SIEMENS', 'Siemens']
-
-    for sw in sw_versions:
-        sb = sw.encode('ascii')
-        idx = data.find(sb)
-        if idx >= 0:
-            ctx_start = max(0, idx - 4)
-            ctx_end = min(len(data), idx + len(sb) + 20)
-            ctx = data[ctx_start:ctx_end]
-            ctx_str = ''.join(chr(b) if 32 <= b < 127 else '.' for b in ctx)
-            results[sw] = f'@0x{idx:05X} [{ctx_str}]'
-
-    return results
+    return {'size':offset,**found}
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read-only heuristic firmware string inventory; no ECU identity certification.")
