@@ -15,8 +15,9 @@ Existing third-party dependencies, references, definitions and firmware retain
 their own licences; this change does not relicense those materials.
 
 The unified CLI/bundle work builds on this single shared Python engine instead
-of copying another parser. A portable source/wheel bundle is being assembled in
-the companion CLI review lane. Running it requires a compatible Python runtime;
+of copying another parser. A portable source/wheel bundle is available with the
+[guarded Editor 1.2.0rc2 release](https://github.com/KingAiCodeForge/tunerpro-xdf-bin-cli-map-editor/releases/tag/v1.2.0rc2).
+Running it requires a compatible Python runtime;
 it is not a standalone executable or an installed ChatGPT extension. ChatGPT
 can inspect source, help construct command arguments or use the bundle only
 where that session provides compatible file and Python execution tools. Plain
@@ -31,8 +32,11 @@ inputs, fail-closed tests and an explicit support/limitation record.
 
 ### Shared exporter package, version 3.7.5rc1
 
-This is an experimental prerelease of the precision-reviewed 3.7.5 engine,
-paired with Editor 1.2.0rc1. It also restores the GUI output-plan safety fix,
+This is an experimental prerelease of the precision-reviewed 3.7.5 engine.
+It was originally paired with Editor 1.2.0rc1; **current guarded Editor 1.2.0rc2**
+pins this Exporter's source at commit e7c0ae86534791620ea0b843810f4980d24081d5.
+Use RC2 for supervised edits; the historical RC1 package has documented write-guard defects.
+This Exporter also restores the GUI output-plan safety fix,
 repairs version-independent wheel discovery and makes the public collection
 utilities portable and non-destructive by default. See [PUBLIC_RELEASE.md](PUBLIC_RELEASE.md)
 for branch provenance, executed checks, script scope and the unavailable corpus.
