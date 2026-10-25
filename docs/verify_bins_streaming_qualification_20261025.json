@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "observed_at_utc": "2026-10-25T10:15:07Z",
+  "scope": "Generic source-only read-only scanner; no customer firmware, native GUI or hardware",
+  "inputs": {
+    "main": "b79704782adc4b0782046dc42dcc8c6f78573942",
+    "pr9": "48f94c4b981dadac593b236f29c8845adcf35085",
+    "pr10": "47cc96d55fac45f696a29f8f261adb53f27166f6"
+  },
+  "python": "3.13.5",
+  "platform": "Windows",
+  "pytest_plugin_autoload": false,
+  "candidate_scanner_sha256": "7a82cb0be60b3b40170d0bb4980e9aa63ce06e8fa48020069710cdf61ac1fde9",
+  "original_pr9_test_sha256": "30686cedf993e7f0f8649cd1fe95fde15fcc216dbc3787cb637375dbe2c234f3",
+  "new_contract_test_sha256": "e7c6132d2c6e3cd06f7b7af519c748a6255d0de327290f4133635f3338d91d5d",
+  "results": {
+    "contract_before_fix": {"passed": 4, "failed": 7, "exit": 1},
+    "focused_after_fix": {"passed": 38, "exit": 0},
+    "original_pr9_on_original": {"passed": 14, "exit": 0},
+    "original_pr10_on_original": {"passed": 9, "exit": 0},
+    "independent_oracle_on_candidate": {"same_prior_input_cases": 672, "mapping_pass": true, "ordered_items_pass": true, "inputs_unchanged": true, "exit": 0},
+    "full_source": {"passed": 734, "skipped": 4, "separate_passed_subtests": 18, "exit": 0},
+    "build_no_isolation": {"exit": 0},
+    "wheel_install_no_index_no_deps": {"exit": 0},
+    "outside_checkout_installed_core_and_copied_source_utilities": {"passed": 734, "skipped": 4, "exit": 0},
+    "wheel_payloads_source_and_installed_match": {"python_files": 8, "pass": true},
+    "installed_core_import_origins_in_new_venv": {"pass": true, "exit": 0},
+    "installed_exporter_cli_help": {"exit": 0}
+  },
+  "skips": [
+    "exact local SP-Daten fixture unavailable",
+    "exact local paired SP-Daten fixtures unavailable",
+    "local MS42 native TunerPro export fixture not present",
+    "local Bin Definitions MS41 fixtures are unavailable"
+  ],
+  "artifact_boundary": "verify_bins.py is excluded from the package wheel; scanner checks use a separately hash-matched standalone copy outside checkout",
+  "wheel_sha256": "6f6bc4f512bc09ad017615ff504e6b4055460fe43d6b2516a176978d91353e8d",
+  "limitations": [
+    "Overlapping test runs are not additive unique coverage",
+    "No Linux or Python 3.10 run in this batch",
+    "No complete descriptor-identity or TOCTOU guarantee",
+    "No ECU identity, compatibility, native-editor or flash qualification",
+    "Existing hosted CI jobs were billing-locked without executing test steps"
+  ]
+}

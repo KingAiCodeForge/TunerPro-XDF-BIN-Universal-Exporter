@@ -66,7 +66,9 @@ def check_strings(filepath):
             raise ValueError('Firmware changed while scanning')
     except OSError as exc:
         raise ValueError(f'Cannot read {filepath}: {exc}') from exc
-    return {'size':offset,**found}
+    # Discovery order depends on chunk boundaries; the legacy CLI displays
+    # mismatch details in signature order, not physical file-arrival order.
+    return {'size': offset, **{sw: found[sw] for sw in SW_VERSIONS if sw in found}}
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="Read-only heuristic firmware string inventory; no ECU identity certification.")
