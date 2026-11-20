@@ -569,6 +569,24 @@ def oriented_candidates(table: dict[str, Any]) -> Iterable[dict[str, Any]]:
                 }
 
 
+
+def _finite_export_number(value: Any) -> float:
+    """Reject boolean or non-finite JSON values before parity comparison.
+
+    Preserve compatibility with the existing numeric-string JSON inputs; this
+    check is about numeric evidence, not calibration or ECU identification.
+    """
+    if isinstance(value, bool):
+        raise ValueError("boolean is not numeric evidence")
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("not a numeric value") from exc
+    if not math.isfinite(number):
+        raise ValueError("numeric evidence must be finite")
+    return number
+
+
 def validate_table_evidence(table: dict[str, Any]) -> None:
     """Reject malformed JSON before orientation/zip can discard evidence."""
     title = table.get("title", "")
@@ -589,7 +607,7 @@ def validate_table_evidence(table: dict[str, Any]) -> None:
                 raise ValueError(f"Exporter table {title!r}: axis {axis_id} labels must be a list")
             try:
                 for value in labels:
-                    float(value)
+                    _finite_export_number(value)
             except (TypeError, ValueError, OverflowError) as exc:
                 raise ValueError(f"Exporter table {title!r}: axis {axis_id} has a nonnumeric label") from exc
     data = table.get("data")
@@ -602,7 +620,7 @@ def validate_table_evidence(table: dict[str, Any]) -> None:
     try:
         for row in data:
             for value in row:
-                float(value)
+                _finite_export_number(value)
     except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError(f"Exporter table {title!r}: data contains a nonnumeric cell") from exc
 
@@ -799,7 +817,7 @@ def compare_exports(
             raise ValueError(f"Exporter {kind} must be a list of objects")
     for item in exported.get("scalars") or []:
         try:
-            float(item.get("value"))
+            _finite_export_number(item.get("value"))
         except (TypeError, ValueError, OverflowError) as exc:
             raise ValueError(f"Exporter scalar {item.get('title', '')!r} has no numeric value") from exc
     for table in exported.get("tables") or []:
