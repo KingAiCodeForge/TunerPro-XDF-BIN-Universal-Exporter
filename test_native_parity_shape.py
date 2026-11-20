@@ -44,6 +44,44 @@ def test_malformed_table_evidence_is_rejected(key, value):
         parity.compare_exports(native(), candidate, 0.0)
 
 
+
+@pytest.mark.parametrize("value", [True, False, float("nan"), float("inf"),
+                                    -float("inf"), "NaN", "Infinity"])
+def test_scalar_boolean_and_nonfinite_values_are_not_parity_evidence(value):
+    source = {
+        "scalars": [{"title": "Switch", "occurrence": 1, "value": number(1),
+                     "unit": ""}],
+        "tables": [], "parse_errors": [],
+    }
+    candidate = {"scalars": [{"title": "Switch", "value": value, "unit": ""}],
+                 "tables": []}
+    # Before this guard, True versus 1.00 could produce an incorrect PASS.
+    with pytest.raises(ValueError, match="has no numeric value"):
+        parity.compare_exports(source, candidate, 0.0)
+
+
+@pytest.mark.parametrize("kind,value", [
+    ("axis", True), ("axis", float("nan")), ("axis", float("inf")),
+    ("cell", False), ("cell", float("nan")), ("cell", -float("inf")),
+])
+def test_table_boolean_and_nonfinite_evidence_is_rejected(kind, value):
+    candidate = exported()
+    if kind == "axis":
+        candidate["tables"][0]["axes"]["x"]["labels"][0] = value
+    else:
+        candidate["tables"][0]["data"][0][0] = value
+    with pytest.raises(ValueError, match="Grid"):
+        parity.compare_exports(native(), candidate, 0.0)
+
+
+def test_compatible_finite_numbers_and_numeric_strings_still_pass():
+    candidate = exported()
+    candidate["tables"][0]["axes"]["x"]["labels"][0] = "100"
+    candidate["tables"][0]["data"][0][0] = "5.0"
+    assert parity.compare_exports(native(), candidate, 0.0)["status"] == "PASS"
+
+
+
 def test_valid_rectangular_table_still_matches():
     assert parity.compare_exports(native(), exported(), 0.0)["status"] == "PASS"
 
