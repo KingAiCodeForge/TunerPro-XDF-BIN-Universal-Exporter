@@ -23,6 +23,13 @@ class TableLayout:
     minor_stride: int = 0
 
     def __post_init__(self):
+        # Reject malformed geometry before it can become a BIN offset.
+        for field_name in ("address", "rows", "cols", "size_bits",
+                           "major_stride", "minor_stride"):
+            if type(getattr(self, field_name)) is not int:
+                raise ValueError(f"XDF {field_name} must be an integer")
+        if self.address < 0:
+            raise ValueError("XDF Z-axis address cannot be negative")
         if self.rows < 1 or self.cols < 1:
             raise ValueError("XDF table dimensions must be positive")
         if self.size_bits not in (8, 16, 32, 64):
@@ -37,6 +44,8 @@ class TableLayout:
         return self.size_bits // 8
 
     def cell_address(self, row: int, col: int) -> int:
+        if type(row) is not int or type(col) is not int:
+            raise TypeError("XDF cell coordinates must be integers")
         if not (0 <= row < self.rows and 0 <= col < self.cols):
             raise IndexError("XDF table cell is outside its declared dimensions")
         major = (self.major_stride or self.size_bits) // 8
